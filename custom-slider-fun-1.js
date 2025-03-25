@@ -22,6 +22,7 @@ uniform float uTransition;
 uniform vec2 uMousePosition;
 uniform float uDirection;
 uniform float uAutoRotationX;
+uniform float uFishEyeLevel;
 varying vec2 vUv;
 varying vec2 vScreenPosition;
 
@@ -55,7 +56,7 @@ vec3 getColor(vec3 ray, sampler2D tex) {
 
 void main() {
     vec2 uv = vScreenPosition.xy;
-    vec3 dir = getFishEye(uv, 1.4);
+    vec3 dir = getFishEye(uv, uFishEyeLevel);
     vec3 color;
     
     // Горизонтальное и вертикальное движение
@@ -182,7 +183,8 @@ class CustomGallery {
         this.params = {
             transition: 0,
             direction: 1, // 1 для вправо, -1 для влево
-            autoRotationX: 0 // Добавляем параметр для автоматического вращения по оси X
+            autoRotationX: 0, // Добавляем параметр для автоматического вращения по оси X
+            fishEyeLevel: 1.4 // Начальное значение силы фишай-эффекта (нормальное)
         };
         
         // Флаг для определения touch-only устройства
@@ -262,6 +264,7 @@ class CustomGallery {
         this.textureLocation = this.gl.getUniformLocation(this.program, 'uTexture');
         this.textureNextLocation = this.gl.getUniformLocation(this.program, 'uTextureNext');
         this.autoRotationXLocation = this.gl.getUniformLocation(this.program, 'uAutoRotationX');
+        this.fishEyeLevelLocation = this.gl.getUniformLocation(this.program, 'uFishEyeLevel');
         
         // Создаем геометрию (прямоугольник на весь экран)
         const positions = new Float32Array([
@@ -592,6 +595,9 @@ class CustomGallery {
         // Устанавливаем параметр автоматического вращения
         this.gl.uniform1f(this.autoRotationXLocation, this.params.autoRotationX);
         
+        // Устанавливаем параметр силы эффекта фишай
+        this.gl.uniform1f(this.fishEyeLevelLocation, this.params.fishEyeLevel);
+        
         // Активируем текстуры
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
@@ -717,12 +723,16 @@ class CustomGallery {
         this.mousePosition = { ...centerPosition };
         this.targetMousePosition = { ...centerPosition };
         
-        // Запускаем два полных оборота
+        // Устанавливаем начальное сильное искажение фишай
+        this.params.fishEyeLevel = 10.0; // Начинаем с очень сильного искажения
+        
+        // Запускаем оригинальную анимацию, но с добавлением фишай-эффекта
         gsap.timeline()
             .to(this.params, {
-                transition: 2, // Два полных оборота
-                duration: 2.5, // Длительность 2.5 секунды
-                ease: "expo.inOut", // Эффект easing - быстрый старт и конец
+                transition: 2, // Два полных оборота (как в оригинале)
+                fishEyeLevel: 1.4, // Одновременно уменьшаем искажение до нормального
+                duration: 2.5, // Длительность 2.5 секунды (как в оригинале)
+                ease: "expo.inOut", // Эффект easing - быстрый старт и конец (как в оригинале)
                 onStart: () => {
                     // Установим направление анимации на обратное для эффекта
                     this.params.direction = -1;
@@ -731,6 +741,7 @@ class CustomGallery {
                 onComplete: () => {
                     // Восстанавливаем состояние после анимации
                     this.params.transition = 0;
+                    this.params.fishEyeLevel = 1.4; // Явно устанавливаем нормальное значение
                     this.isAnimating = false;
                     this.initialAnimationPlayed = true;
                     this.isInitialAnimationPlaying = false; // Разблокируем обработку движения мыши
@@ -743,7 +754,6 @@ class CustomGallery {
                     this.showElementsAfterIntro();
                     
                     // Запускаем автоматическое вращение на touch устройствах
-                    // Для первого слайда запускаем сразу после интро
                     if (this.isTouchOnly) {
                         // Устанавливаем autoRotationX в 0
                         this.params.autoRotationX = 0;

@@ -1,115 +1,201 @@
 // Определяем шейдеры, взятые из webflow-gallery.min.js
-const VERTEX_SHADER = `
-attribute vec4 aPosition;
-attribute vec2 aTexCoord;
-varying vec2 vUv;
-varying vec2 vScreenPosition;
+const VERTEX_SHADER = 
+"attribute vec4 aPosition;\n" +
+"attribute vec2 aTexCoord;\n" +
+"varying vec2 vUv;\n" +
+"varying vec2 vScreenPosition;\n" +
+"\n" +
+"void main() {\n" +
+"    gl_Position = aPosition;\n" +
+"    vUv = aTexCoord;\n" +
+"    vScreenPosition = aPosition.xy;\n" +
+"}";
 
-void main() {
-    gl_Position = aPosition;
-    vUv = aTexCoord;
-    vScreenPosition = aPosition.xy;
-}`;
-
-const FRAGMENT_SHADER = `
-precision highp float;
-
-uniform float uTime;
-uniform vec2 uResolution;
-uniform sampler2D uTexture;
-uniform sampler2D uTextureNext;
-uniform float uTransition;
-uniform vec2 uMousePosition;
-uniform float uDirection;
-uniform float uAutoRotationX;
-varying vec2 vUv;
-varying vec2 vScreenPosition;
-
-#define PI 3.1415926535897932384626433832795
-
-vec3 getFishEye(vec2 uv, float level) {
-    float len = length(uv);
-    float a = len * level;
-    return vec3(uv / len * sin(a), -cos(a));
-}
-
-vec3 getColor(vec3 ray, sampler2D tex) {
-    vec2 baseUV = ray.xy;
-    baseUV = (baseUV + 1.0) * 0.5;
-    
-    float containerAspect = uResolution.x / uResolution.y;
-    float scale = 1.0;
-    
-    if (containerAspect < 1.0) {
-        scale = containerAspect;
-        baseUV.x = baseUV.x * scale + (1.0 - scale) * 0.5;
-    } else {
-        scale = 1.0 / containerAspect;
-        baseUV.y = baseUV.y * scale + (1.0 - scale) * 0.5;
-    }
-    
-    baseUV.y = 1.0 - baseUV.y;
-    vec3 baseColor = texture2D(tex, baseUV).xyz;
-    return baseColor;
-}
-
-void main() {
-    vec2 uv = vScreenPosition.xy;
-    vec3 dir = getFishEye(uv, 1.4);
-    vec3 color;
-    
-    // Горизонтальное и вертикальное движение
-    float mouseX = -(uMousePosition.x - 0.5);
-    float mouseY = -(uMousePosition.y - 0.5);
-    float mouseInfluenceX = 0.3;
-    float mouseInfluenceY = 0.2;
-    
-    float mouseRotationX = mouseX * mouseInfluenceX * PI;
-    float mouseRotationY = mouseY * mouseInfluenceY * PI;
-    
-    float transitionRotation = uTransition * PI * 2.0 * uDirection;
-    
-    // Добавляем автоматическое вращение по оси X
-    float autoRotation = uAutoRotationX;
-    
-    // Матрицы поворота
-    mat2 mouseRotationMatrixX = mat2(
-        cos(mouseRotationX), -sin(mouseRotationX),
-        sin(mouseRotationX), cos(mouseRotationX)
-    );
-    
-    mat2 mouseRotationMatrixY = mat2(
-        cos(mouseRotationY), -sin(mouseRotationY),
-        sin(mouseRotationY), cos(mouseRotationY)
-    );
-    
-    mat2 transitionRotationMatrix = mat2(
-        cos(transitionRotation), -sin(transitionRotation),
-        sin(transitionRotation), cos(transitionRotation)
-    );
-    
-    // Матрица для автоматического вращения
-    mat2 autoRotationMatrix = mat2(
-        cos(autoRotation), -sin(autoRotation),
-        sin(autoRotation), cos(autoRotation)
-    );
-    
-    // Применяем повороты
-    dir.xz = mouseRotationMatrixX * dir.xz;
-    dir.yz = mouseRotationMatrixY * dir.yz;
-    dir.xz = transitionRotationMatrix * dir.xz;
-    dir.xz = autoRotationMatrix * dir.xz;
-    
-    // Смешивание текстур
-    vec3 currentColor = getColor(dir, uTexture);
-    vec3 nextColor = getColor(dir, uTextureNext);
-    
-    float mixFactor = smoothstep(0.0, 1.0, uTransition);
-    color = mix(currentColor, nextColor, mixFactor);
-    
-    float fish_eye = smoothstep(2.0, 1.6, length(uv)) * 0.15 + 0.85;
-    gl_FragColor = vec4(color * fish_eye, 1.0);
-}`;
+const FRAGMENT_SHADER = 
+"precision highp float;\n" +
+"\n" +
+"uniform float uTime;\n" +
+"uniform vec2 uResolution;\n" +
+"uniform sampler2D uTexture;\n" +
+"uniform sampler2D uTextureNext;\n" +
+"uniform float uTransition;\n" +
+"uniform vec2 uMousePosition;\n" +
+"uniform float uDirection;\n" +
+"uniform float uAutoRotationX;\n" +
+"uniform float uUnwrapProgress;\n" +
+"uniform float uRotation;\n" +
+"uniform float uStretchV;\n" +
+"uniform float uZoom;\n" +
+"varying vec2 vUv;\n" +
+"varying vec2 vScreenPosition;\n" +
+"\n" +
+"#define PI 3.1415926535897932384626433832795\n" +
+"#define CAMERA_DIST 25.0\n" +
+"\n" +
+"// Определяем функцию getFishEye до ее использования\n" +
+"vec3 getFishEye(vec2 uv, float level) {\n" +
+"    float len = length(uv);\n" +
+"    float a = len * level;\n" +
+"    return vec3(uv / len * sin(a), -cos(a));\n" +
+"}\n" +
+"\n" +
+"vec3 getColor(vec2 p, sampler2D tex) {\n" +
+"    // Адаптируем p от [-1,1] к [0,1] для текстурных координат\n" +
+"    vec2 baseUV = (p + 1.0) * 0.5;\n" +
+"    \n" +
+"    // Используем тот же подход к маппингу, что и в unwrap шейдере\n" +
+"    float containerAspect = uResolution.x / uResolution.y;\n" +
+"    float scale = 1.0;\n" +
+"    \n" +
+"    if (containerAspect < 1.0) {\n" +
+"        scale = containerAspect;\n" +
+"        baseUV.x = baseUV.x * scale + (1.0 - scale) * 0.5;\n" +
+"    } else {\n" +
+"        scale = 1.0 / containerAspect;\n" +
+"        baseUV.y = baseUV.y * scale + (1.0 - scale) * 0.5;\n" +
+"    }\n" +
+"    \n" +
+"    // Инвертируем Y координату для правильной ориентации текстуры\n" +
+"    baseUV.y = 1.0 - baseUV.y;\n" +
+"    \n" +
+"    // Применяем текстурные координаты\n" +
+"    vec3 baseColor = texture2D(tex, baseUV).xyz;\n" +
+"    return baseColor;\n" +
+"}\n" +
+"\n" +
+"void main() {\n" +
+"    // Нормализуем координаты для создания идеально круглой сферы\n" +
+"    vec2 p = vScreenPosition.xy;\n" +
+"    \n" +
+"    // Задаем цвет фона как полностью прозрачный\n" +
+"    vec4 fragColor = vec4(0.0, 0.0, 0.0, 0.0);\n" +
+"    \n" +
+"    // t - коэффициент анимации от 0 до 1\n" +
+"    float t = uUnwrapProgress;\n" +
+"    \n" +
+"    // Вычисляем коэффициент масштабирования согласно формуле из шейдера unwrap\n" +
+"    float zoom = pow(2.0 * t, 5.0) + 1.0;\n" +
+"    \n" +
+"    // Применяем начальное масштабирование сферы\n" +
+"    zoom *= uZoom;\n" +
+"    \n" +
+"    // Соотношение сторон для правильной проекции\n" +
+"    float aspect = uResolution.x / uResolution.y;\n" +
+"    \n" +
+"    // Применяем правильную проекцию к направлению луча\n" +
+"    // Используем фиксированное поле зрения по вертикали (y) и масштабируем по горизонтали (x)\n" +
+"    vec3 dir;\n" +
+"    if (aspect >= 1.0) {\n" +
+"        // Горизонтальный экран: фиксируем y, масштабируем x\n" +
+"        dir = normalize(vec3(p.x * aspect * PI, p.y * PI, -zoom * (CAMERA_DIST - 1.0)));\n" +
+"    } else {\n" +
+"        // Вертикальный экран: фиксируем x, масштабируем y\n" +
+"        dir = normalize(vec3(p.x * PI, p.y / aspect * PI, -zoom * (CAMERA_DIST - 1.0)));\n" +
+"    }\n" +
+"    \n" +
+"    // Вычисляем параметры для определения пересечения луча со сферой\n" +
+"    float b = CAMERA_DIST * dir.z;\n" +
+"    float h = b*b - CAMERA_DIST*CAMERA_DIST + 1.0;\n" +
+"    \n" +
+"    // Если есть пересечение со сферой (h >= 0)\n" +
+"    if (h >= 0.0) {\n" +
+"        // Вычисляем точку пересечения луча со сферой\n" +
+"        vec3 q = vec3(0.0, 0.0, CAMERA_DIST) - dir * (b + sqrt(h));\n" +
+"        \n" +
+"        // Создаем матрицу поворота вокруг оси Y\n" +
+"        float cosRot = cos(uRotation * PI * 2.0);\n" +
+"        float sinRot = sin(uRotation * PI * 2.0);\n" +
+"        mat3 rotationMatrix = mat3(\n" +
+"            cosRot, 0.0, -sinRot,\n" +
+"            0.0, 1.0, 0.0,\n" +
+"            sinRot, 0.0, cosRot\n" +
+"        );\n" +
+"        \n" +
+"        // Применяем поворот к точке на сфере\n" +
+"        q = rotationMatrix * q;\n" +
+"        \n" +
+"        // Преобразуем точку на сфере в текстурные координаты\n" +
+"        vec3 normal = normalize(q);\n" +
+"        float u = atan(normal.x, normal.z) / (2.0 * PI);\n" +
+"        float v = 1.0 - acos(normal.y) / PI;\n" +
+"        vec2 sphereCoords = vec2(u, v);\n" +
+"        \n" +
+"        // Применяем масштабирование\n" +
+"        p = sphereCoords * zoom;\n" +
+"        \n" +
+"        // Получаем базовые цвета из текстур\n" +
+"        vec3 currentColor = getColor(p, uTexture);\n" +
+"        vec3 nextColor = getColor(p, uTextureNext);\n" +
+"        \n" +
+"        // Смешиваем цвета для анимации перехода между слайдами\n" +
+"        float mixFactor = smoothstep(0.0, 1.0, uTransition);\n" +
+"        vec3 color = mix(currentColor, nextColor, mixFactor);\n" +
+"        \n" +
+"        // Применяем Fisheye эффект\n" +
+"        vec3 fisheyeDir = getFishEye(vScreenPosition.xy, 1.4);\n" +
+"        \n" +
+"        // Плавно смешиваем между сферическими и Fisheye координатами\n" +
+"        float fisheyeMix = smoothstep(0.0, 1.0, t);\n" +
+"        vec2 finalCoords = mix(sphereCoords, fisheyeDir.xy, fisheyeMix);\n" +
+"        \n" +
+"        // Получаем цвет с учетом смешивания\n" +
+"        currentColor = getColor(finalCoords, uTexture);\n" +
+"        nextColor = getColor(finalCoords, uTextureNext);\n" +
+"        color = mix(currentColor, nextColor, mixFactor);\n" +
+"        \n" +
+"        // Применяем повороты при контроле мышью\n" +
+"        if (t >= 1.0) {\n" +
+"            float mouseX = -(uMousePosition.x - 0.5);\n" +
+"            float mouseY = -(uMousePosition.y - 0.5);\n" +
+"            float mouseInfluenceX = 0.3;\n" +
+"            float mouseInfluenceY = 0.2;\n" +
+"            \n" +
+"            float mouseRotationX = mouseX * mouseInfluenceX * PI;\n" +
+"            float mouseRotationY = mouseY * mouseInfluenceY * PI;\n" +
+"            \n" +
+"            float transitionRotation = uTransition * PI * 2.0 * uDirection;\n" +
+"            float autoRotation = uAutoRotationX;\n" +
+"            \n" +
+"            // Применяем повороты\n" +
+"            mat2 mouseRotationMatrixX = mat2(\n" +
+"                cos(mouseRotationX), -sin(mouseRotationX),\n" +
+"                sin(mouseRotationX), cos(mouseRotationX)\n" +
+"            );\n" +
+"            \n" +
+"            mat2 mouseRotationMatrixY = mat2(\n" +
+"                cos(mouseRotationY), -sin(mouseRotationY),\n" +
+"                sin(mouseRotationY), cos(mouseRotationY)\n" +
+"            );\n" +
+"            \n" +
+"            mat2 transitionRotationMatrix = mat2(\n" +
+"                cos(transitionRotation), -sin(transitionRotation),\n" +
+"                sin(transitionRotation), cos(transitionRotation)\n" +
+"            );\n" +
+"            \n" +
+"            mat2 autoRotationMatrix = mat2(\n" +
+"                cos(autoRotation), -sin(autoRotation),\n" +
+"                sin(autoRotation), cos(autoRotation)\n" +
+"            );\n" +
+"            \n" +
+"            fisheyeDir.xz = mouseRotationMatrixX * fisheyeDir.xz;\n" +
+"            fisheyeDir.yz = mouseRotationMatrixY * fisheyeDir.yz;\n" +
+"            fisheyeDir.xz = transitionRotationMatrix * fisheyeDir.xz;\n" +
+"            fisheyeDir.xz = autoRotationMatrix * fisheyeDir.xz;\n" +
+"            \n" +
+"            // Получаем цвет для Fisheye эффекта\n" +
+"            currentColor = getColor(fisheyeDir.xy, uTexture);\n" +
+"            nextColor = getColor(fisheyeDir.xy, uTextureNext);\n" +
+"            color = mix(currentColor, nextColor, mixFactor);\n" +
+"        }\n" +
+"        \n" +
+"        // Применяем угасание по краям\n" +
+"        float fish_eye = smoothstep(2.0, 1.6, length(vScreenPosition.xy)) * 0.15 + 0.85;\n" +
+"        \n" +
+"        fragColor = vec4(color * fish_eye, 1.0);\n" +
+"    }\n" +
+"    \n" +
+"    gl_FragColor = fragColor;\n" +
+"}";
 
 class CustomGallery {
     constructor() {
@@ -118,6 +204,8 @@ class CustomGallery {
         
         // Контейнер слайдов
         this.container = document.querySelector('[data-gallery="container"]');
+        this.container.style.width = '100%';
+        this.container.style.height = '100%';
         this.slides = document.querySelectorAll('[data-gallery="slide"]');
         
         // Элементы навигации теперь находятся в отдельном контейнере
@@ -166,7 +254,13 @@ class CustomGallery {
         this.container.appendChild(this.canvas);
         
         // Получаем WebGL контекст
-        this.gl = this.canvas.getContext('webgl') || this.canvas.getContext('experimental-webgl');
+        this.gl = this.canvas.getContext('webgl', {
+            alpha: true,
+            premultipliedAlpha: false
+        }) || this.canvas.getContext('experimental-webgl', {
+            alpha: true,
+            premultipliedAlpha: false
+        });
         if (!this.gl) {
             console.error('WebGL не поддерживается в этом браузере');
             this.useWebGL = false;
@@ -182,7 +276,11 @@ class CustomGallery {
         this.params = {
             transition: 0,
             direction: 1, // 1 для вправо, -1 для влево
-            autoRotationX: 0 // Добавляем параметр для автоматического вращения по оси X
+            autoRotationX: 0, // Добавляем параметр для автоматического вращения по оси X
+            unwrapProgress: 0, // Добавили новый параметр для анимации разворота сферы
+            rotation: 0,    // Параметр для вращения текстуры
+            stretchV: 1.0,  // Параметр для вертикального растяжения текстуры
+            zoom: 1.0      // Параметр для масштабирования сферы
         };
         
         // Флаг для определения touch-only устройства
@@ -242,8 +340,8 @@ class CustomGallery {
     // Инициализация WebGL
     initWebGL() {
         // Настройка размера canvas
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
+        this.resizeCanvasToDisplaySize();
+        window.addEventListener('resize', () => this.resizeCanvasToDisplaySize());
         
         // Создаем шейдерную программу
         const vertexShader = this.createShader(this.gl.VERTEX_SHADER, VERTEX_SHADER);
@@ -262,6 +360,10 @@ class CustomGallery {
         this.textureLocation = this.gl.getUniformLocation(this.program, 'uTexture');
         this.textureNextLocation = this.gl.getUniformLocation(this.program, 'uTextureNext');
         this.autoRotationXLocation = this.gl.getUniformLocation(this.program, 'uAutoRotationX');
+        this.unwrapProgressLocation = this.gl.getUniformLocation(this.program, 'uUnwrapProgress');
+        this.rotationLocation = this.gl.getUniformLocation(this.program, 'uRotation');
+        this.stretchVLocation = this.gl.getUniformLocation(this.program, 'uStretchV');
+        this.zoomLocation = this.gl.getUniformLocation(this.program, 'uZoom');
         
         // Создаем геометрию (прямоугольник на весь экран)
         const positions = new Float32Array([
@@ -356,14 +458,15 @@ class CustomGallery {
         });
     }
     
-    resizeCanvas() {
-        const displayWidth = this.container.clientWidth;
-        const displayHeight = this.container.clientHeight;
+    resizeCanvasToDisplaySize(force) {
+        const canvas = this.canvas;
+        const width = canvas.clientWidth;
+        const height = canvas.clientHeight;
         
-        if (this.canvas.width !== displayWidth || this.canvas.height !== displayHeight) {
-            this.canvas.width = displayWidth;
-            this.canvas.height = displayHeight;
-            this.gl.viewport(0, 0, this.gl.canvas.width, this.gl.canvas.height);
+        if (canvas.width !== width || canvas.height !== height) {
+            canvas.width = width;
+            canvas.height = height;
+            this.gl.viewport(0, 0, width, height);
         }
     }
     
@@ -562,16 +665,22 @@ class CustomGallery {
     render() {
         if (!this.useWebGL || !this.gl) return;
         
-        this.resizeCanvas();
+        // Обновляем размеры canvas
+        this.resizeCanvasToDisplaySize();
         
         // Интерполяция позиции мыши для плавного эффекта
         const interpolationFactor = 0.1;
         this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
         this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
         
-        // Очищаем canvas
-        this.gl.clearColor(0, 0, 0, 1);
+        // Очищаем canvas на прозрачный фон
+        this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+        this.gl.enable(this.gl.BLEND);
+        this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
+        
+        // Включаем двусторонний рендеринг, чтобы видеть все пиксели
+        this.gl.disable(this.gl.CULL_FACE);
         
         // Используем нашу программу
         this.gl.useProgram(this.program);
@@ -591,6 +700,10 @@ class CustomGallery {
         
         // Устанавливаем параметр автоматического вращения
         this.gl.uniform1f(this.autoRotationXLocation, this.params.autoRotationX);
+        this.gl.uniform1f(this.unwrapProgressLocation, this.params.unwrapProgress);
+        this.gl.uniform1f(this.rotationLocation, this.params.rotation);
+        this.gl.uniform1f(this.stretchVLocation, this.params.stretchV);
+        this.gl.uniform1f(this.zoomLocation, this.params.zoom);
         
         // Активируем текстуры
         this.gl.activeTexture(this.gl.TEXTURE0);
@@ -711,39 +824,26 @@ class CustomGallery {
         // Блокируем обработку движения мыши на время анимации
         this.isInitialAnimationPlaying = true;
         
-        // Сохраняем и устанавливаем начальную позицию мыши (центр)
-        const originalMousePosition = { ...this.mousePosition };
-        const centerPosition = { x: 0.5, y: 0.5 };
-        this.mousePosition = { ...centerPosition };
-        this.targetMousePosition = { ...centerPosition };
+        // Устанавливаем начальные значения
+        this.params.unwrapProgress = 0; // Начинаем со сферы, видимой на расстоянии
+        this.params.zoom = 0; // Начинаем с полностью невидимой сферы
+        this.params.rotation = 0; // Начинаем с нулевого вращения
         
-        // Запускаем два полных оборота
-        gsap.timeline()
-            .to(this.params, {
-                transition: 2, // Два полных оборота
-                duration: 2.5, // Длительность 2.5 секунды
-                ease: "expo.inOut", // Эффект easing - быстрый старт и конец
-                onStart: () => {
-                    // Установим направление анимации на обратное для эффекта
-                    this.params.direction = -1;
+        // Создаем анимацию
                     this.isAnimating = true;
-                },
+        
+        // Создаем timeline для последовательной анимации
+        const timeline = gsap.timeline({
                 onComplete: () => {
                     // Восстанавливаем состояние после анимации
-                    this.params.transition = 0;
                     this.isAnimating = false;
                     this.initialAnimationPlayed = true;
                     this.isInitialAnimationPlaying = false; // Разблокируем обработку движения мыши
-                    
-                    // Восстанавливаем позицию мыши
-                    this.mousePosition = { ...originalMousePosition };
-                    this.targetMousePosition = { ...originalMousePosition };
                     
                     // Показываем навигацию, пагинацию и текст
                     this.showElementsAfterIntro();
                     
                     // Запускаем автоматическое вращение на touch устройствах
-                    // Для первого слайда запускаем сразу после интро
                     if (this.isTouchOnly) {
                         // Устанавливаем autoRotationX в 0
                         this.params.autoRotationX = 0;
@@ -755,6 +855,22 @@ class CustomGallery {
                     document.dispatchEvent(event);
                 }
             });
+
+        // Добавляем анимации параллельно
+        timeline.to(this.params, {
+            rotation: 2, // Два оборота (2 = 720 градусов)
+            zoom: 0.8, // Увеличиваем до среднего размера
+            duration: 2.5, // 4 секунды на вращение и увеличение
+            ease: "none", // Более плавная анимация
+        });
+
+        // Затем только увеличиваем и разворачиваем
+        timeline.to(this.params, {
+            zoom: 1, // Увеличиваем до нормального размера
+            unwrapProgress: 1, // Конечное значение - плоское изображение
+            duration: 2.0, // 3 секунды на увеличение и разворачивание
+            ease: "power2.Out", // Более плавная анимация
+        });
     }
     
     // Метод для скрытия элементов во время интро-анимации
@@ -912,26 +1028,25 @@ class CustomGallery {
     addTransitionStyles() {
         // Создаем элемент стиля
         const style = document.createElement('style');
-        style.textContent = `
-            [data-gallery="prev"],
-            [data-gallery="next"],
-            [data-gallery="pagination-wrapper"],
-            [data-gallery="text-container"] {
-                transition: opacity 0.3s ease;
-            }
+        style.textContent = 
+            '[data-gallery="prev"], ' +
+            '[data-gallery="next"], ' +
+            '[data-gallery="pagination-wrapper"], ' +
+            '[data-gallery="text-container"] {' +
+            '    transition: opacity 0.3s ease;' +
+            '}' +
             
-            [data-gallery="bullet-progress"] {
-                display: block;
-                width: 100%;
-                height: 100%;
-                transform-origin: left center;
-                transform: scaleX(0);
-            }
+            '[data-gallery="bullet-progress"] {' +
+            '    display: block;' +
+            '    width: 100%;' +
+            '    height: 100%;' +
+            '    transform-origin: left center;' +
+            '    transform: scaleX(0);' +
+            '}' +
             
-            [data-gallery="pagination-bullet"][data-active="true"] [data-gallery="bullet-progress"] {
-                transform: scaleX(1);
-            }
-        `;
+            '[data-gallery="pagination-bullet"][data-active="true"] [data-gallery="bullet-progress"] {' +
+            '    transform: scaleX(1);' +
+            '}';
         document.head.appendChild(style);
     }
     
@@ -974,9 +1089,9 @@ class CustomGallery {
 }
 
 // Инициализация слайдера после загрузки
-// Заменяем событие DOMContentLoaded на инициализацию из HTML
-// document.addEventListener('DOMContentLoaded', () => {
-//     new CustomGallery();
-// });
+document.addEventListener('DOMContentLoaded', () => {
+    window.CustomGallery = CustomGallery;
+});
 
-// Инициализация будет вызываться из HTML после скрытия прелоадера
+// Также делаем класс доступным в глобальном пространстве имен
+window.CustomGallery = CustomGallery;

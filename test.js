@@ -22,93 +22,165 @@ uniform float uTransition;
 uniform vec2 uMousePosition;
 uniform float uDirection;
 uniform float uAutoRotationX;
+uniform float uUnwrap;
 varying vec2 vUv;
 varying vec2 vScreenPosition;
 
 #define PI 3.1415926535897932384626433832795
 
-vec3 getFishEye(vec2 uv, float level) {
-    float len = length(uv);
-    float a = len * level;
-    return vec3(uv / len * sin(a), -cos(a));
-}
-
-vec3 getColor(vec3 ray, sampler2D tex) {
-    vec2 baseUV = ray.xy;
-    baseUV = (baseUV + 1.0) * 0.5;
+// Простое отображение точки сферы на плоскость
+vec2 sphereToPlane(vec2 p) {
+    float r = length(p);
     
-    float containerAspect = uResolution.x / uResolution.y;
-    float scale = 1.0;
-    
-    if (containerAspect < 1.0) {
-        scale = containerAspect;
-        baseUV.x = baseUV.x * scale + (1.0 - scale) * 0.5;
-    } else {
-        scale = 1.0 / containerAspect;
-        baseUV.y = baseUV.y * scale + (1.0 - scale) * 0.5;
+    // Точки за пределами единичного круга не на сфере
+    if (r > 1.0) {
+        return vec2(-10.0); // Метка для прозрачности
     }
     
-    baseUV.y = 1.0 - baseUV.y;
-    vec3 baseColor = texture2D(tex, baseUV).xyz;
-    return baseColor;
+    // Сферические координаты
+    float phi = atan(p.y, p.x);
+    float theta = r * PI * 0.5;
+    
+    // Стандартный мэппинг текстуры на сферу (экваториальная проекция)
+    float u = 0.5 + phi / (2.0 * PI);
+    float v = 1.0 - theta / PI;
+    
+    return vec2(u, v);
+}
+
+// Эффект рыбьего глаза
+vec2 fishEye(vec2 uv, float strength) {
+    float d = length(uv);
+    float z = sqrt(1.0 - d * d);
+    float r = atan(d, z) / PI;
+    r *= strength;
+    
+    float phi = atan(uv.y, uv.x);
+    
+    return vec2(r * cos(phi), r * sin(phi));
 }
 
 void main() {
     vec2 uv = vScreenPosition.xy;
-    vec3 dir = getFishEye(uv, 1.4);
-    vec3 color;
     
-    // Горизонтальное и вертикальное движение
-    float mouseX = -(uMousePosition.x - 0.5);
-    float mouseY = -(uMousePosition.y - 0.5);
-    float mouseInfluenceX = 0.3;
-    float mouseInfluenceY = 0.2;
+    // Начальное значение цвета - прозрачный
+    vec4 color = vec4(0.0, 0.0, 0.0, 0.0);
     
-    float mouseRotationX = mouseX * mouseInfluenceX * PI;
-    float mouseRotationY = mouseY * mouseInfluenceY * PI;
+    if (uUnwrap < 0.01) {
+        // Начальное состояние - чистая сфера
+        vec2 sphereUV = sphereToPlane(uv);
+        
+        if (sphereUV.x > -5.0) { // Если точка на сфере
+            // Применяем вращение к сфере (автовращение и взаимодействие с мышью)
+            float rotX = uAutoRotationX - uMousePosition.x * 0.5;
+            float rotY = uMousePosition.y * 0.5;
+            
+            // Матрица поворота
+            sphereUV.x = mod(sphereUV.x + rotX, 1.0);
+            sphereUV.y = clamp(sphereUV.y + rotY, 0.0, 1.0);
+            
+            // Получаем цвет из текстуры
+            color = texture2D(uTexture, sphereUV);
+        }
+    } else if (uUnwrap >= 1.0) {
+        // Конечное состояние - плоское изображение с эффектом рыбьего глаза
+        vec2 fisheye = fishEye(uv, 1.4);
+        
+        // Ограничиваем область видимости изображения
+        if (length(fisheye) <= 1.0) {
+            // Нормализуем координаты от -1..1 к 0..1
+            vec2 normalizedUV = (fisheye + 1.0) * 0.5;
+            
+            // Добавляем эффект вращения
+            float rotX = uAutoRotationX - uMousePosition.x * 0.5;
+            normalizedUV.x = mod(normalizedUV.x + rotX, 1.0);
+            normalizedUV.y = clamp(normalizedUV.y + uMousePosition.y * 0.5, 0.0, 1.0);
+            
+            // Получаем цвет из текстуры
+            color = texture2D(uTexture, normalizedUV);
+            
+            // Добавляем затемнение по краям
+            float vignette = 1.0 - length(uv) * 0.5;
+            color.rgb *= vignette;
+        }
+    } else {
+        // Анимация перехода между сферой и плоскостью
+        float t = uUnwrap;
+        
+        // Интерполяция между сферическими и плоскими координатами
+        vec2 sphereUV = sphereToPlane(uv);
+        vec2 fisheyeUV = fishEye(uv, 1.4);
+        
+        if (sphereUV.x > -5.0 || length(fisheyeUV) <= 1.0) {
+            // Для точек, которые видны хотя бы на одной из проекций
+            
+            // Нормализуем fisheye координаты
+            vec2 normalizedFisheye = (fisheyeUV + 1.0) * 0.5;
+            
+            // Применяем вращение к обеим проекциям
+            float rotX = uAutoRotationX - uMousePosition.x * 0.5;
+            float rotY = uMousePosition.y * 0.5;
+            
+            // Вращение для сферы
+            if (sphereUV.x > -5.0) {
+                sphereUV.x = mod(sphereUV.x + rotX, 1.0);
+                sphereUV.y = clamp(sphereUV.y + rotY, 0.0, 1.0);
+            }
+            
+            // Вращение для плоскости
+            normalizedFisheye.x = mod(normalizedFisheye.x + rotX, 1.0);
+            normalizedFisheye.y = clamp(normalizedFisheye.y + rotY, 0.0, 1.0);
+            
+            // Выбираем подходящие координаты UV
+            vec2 finalUV;
+            float alpha = 1.0;
+            
+            if (sphereUV.x > -5.0 && length(fisheyeUV) <= 1.0) {
+                // Точка видна в обеих проекциях - смешиваем
+                finalUV = mix(sphereUV, normalizedFisheye, t);
+            } else if (sphereUV.x > -5.0) {
+                // Точка видна только на сфере - постепенно исчезает
+                finalUV = sphereUV;
+                alpha = 1.0 - t;
+            } else {
+                // Точка видна только на плоскости - постепенно появляется
+                finalUV = normalizedFisheye;
+                alpha = t;
+            }
+            
+            // Получаем цвет из текстуры
+            color = texture2D(uTexture, finalUV);
+            
+            // Применяем прозрачность
+            color.a *= alpha;
+            
+            // Добавляем затемнение по краям
+            float vignette = 1.0 - length(uv) * 0.5 * t;
+            color.rgb *= vignette;
+        }
+    }
     
-    float transitionRotation = uTransition * PI * 2.0 * uDirection;
+    // Если есть переход между слайдами, смешиваем с следующей текстурой
+    if (uTransition > 0.0) {
+        vec2 uv2 = vScreenPosition.xy;
+        vec2 dir2 = vec2(cos(uDirection * PI), sin(uDirection * PI));
+        uv2 += dir2 * uTransition;
+        
+        vec2 nextUV;
+        if (uUnwrap < 0.5) {
+            nextUV = sphereToPlane(uv2);
+        } else {
+            vec2 fisheyeUV = fishEye(uv2, 1.4);
+            nextUV = (fisheyeUV + 1.0) * 0.5;
+        }
+        
+        if (nextUV.x > -5.0 && nextUV.x < 1.0 && nextUV.y > 0.0 && nextUV.y < 1.0) {
+            vec4 nextColor = texture2D(uTextureNext, nextUV);
+            color = mix(color, nextColor, uTransition);
+        }
+    }
     
-    // Добавляем автоматическое вращение по оси X
-    float autoRotation = uAutoRotationX;
-    
-    // Матрицы поворота
-    mat2 mouseRotationMatrixX = mat2(
-        cos(mouseRotationX), -sin(mouseRotationX),
-        sin(mouseRotationX), cos(mouseRotationX)
-    );
-    
-    mat2 mouseRotationMatrixY = mat2(
-        cos(mouseRotationY), -sin(mouseRotationY),
-        sin(mouseRotationY), cos(mouseRotationY)
-    );
-    
-    mat2 transitionRotationMatrix = mat2(
-        cos(transitionRotation), -sin(transitionRotation),
-        sin(transitionRotation), cos(transitionRotation)
-    );
-    
-    // Матрица для автоматического вращения
-    mat2 autoRotationMatrix = mat2(
-        cos(autoRotation), -sin(autoRotation),
-        sin(autoRotation), cos(autoRotation)
-    );
-    
-    // Применяем повороты
-    dir.xz = mouseRotationMatrixX * dir.xz;
-    dir.yz = mouseRotationMatrixY * dir.yz;
-    dir.xz = transitionRotationMatrix * dir.xz;
-    dir.xz = autoRotationMatrix * dir.xz;
-    
-    // Смешивание текстур
-    vec3 currentColor = getColor(dir, uTexture);
-    vec3 nextColor = getColor(dir, uTextureNext);
-    
-    float mixFactor = smoothstep(0.0, 1.0, uTransition);
-    color = mix(currentColor, nextColor, mixFactor);
-    
-    float fish_eye = smoothstep(2.0, 1.6, length(uv)) * 0.15 + 0.85;
-    gl_FragColor = vec4(color * fish_eye, 1.0);
+    gl_FragColor = color;
 }`;
 
 class CustomGallery {
@@ -182,7 +254,8 @@ class CustomGallery {
         this.params = {
             transition: 0,
             direction: 1, // 1 для вправо, -1 для влево
-            autoRotationX: 0 // Добавляем параметр для автоматического вращения по оси X
+            autoRotationX: 0, // Параметр для автоматического вращения по оси X
+            unwrap: 0.0    // Добавляем параметр для эффекта unwrap
         };
         
         // Флаг для определения touch-only устройства
@@ -262,6 +335,7 @@ class CustomGallery {
         this.textureLocation = this.gl.getUniformLocation(this.program, 'uTexture');
         this.textureNextLocation = this.gl.getUniformLocation(this.program, 'uTextureNext');
         this.autoRotationXLocation = this.gl.getUniformLocation(this.program, 'uAutoRotationX');
+        this.unwrapLocation = this.gl.getUniformLocation(this.program, 'uUnwrap');
         
         // Создаем геометрию (прямоугольник на весь экран)
         const positions = new Float32Array([
@@ -592,6 +666,9 @@ class CustomGallery {
         // Устанавливаем параметр автоматического вращения
         this.gl.uniform1f(this.autoRotationXLocation, this.params.autoRotationX);
         
+        // Устанавливаем параметр unwrap
+        this.gl.uniform1f(this.unwrapLocation, this.params.unwrap || 0.0);
+        
         // Активируем текстуры
         this.gl.activeTexture(this.gl.TEXTURE0);
         this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
@@ -717,23 +794,34 @@ class CustomGallery {
         this.mousePosition = { ...centerPosition };
         this.targetMousePosition = { ...centerPosition };
         
-        // Запускаем два полных оборота
+        // Принудительно устанавливаем unwrap в 0 (сфера)
+        this.params.unwrap = 0.0;
+        
+        // Создаем анимацию с паузой в начале
         gsap.timeline()
-            .to(this.params, {
-                transition: 2, // Два полных оборота
-                duration: 2.5, // Длительность 2.5 секунды
-                ease: "expo.inOut", // Эффект easing - быстрый старт и конец
+            // Пауза для отображения сферы (3 секунды)
+            .to({}, {
+                duration: 3, 
                 onStart: () => {
-                    // Установим направление анимации на обратное для эффекта
-                    this.params.direction = -1;
+                    console.log("Showing sphere...");
                     this.isAnimating = true;
+                }
+            })
+            // Анимация разворачивания
+            .to(this.params, {
+                unwrap: 1.0,
+                duration: 2.5,
+                ease: "power2.inOut",
+                onStart: () => {
+                    console.log("Starting unwrap animation...");
                 },
                 onComplete: () => {
-                    // Восстанавливаем состояние после анимации
-                    this.params.transition = 0;
+                    console.log("Animation complete!");
+                    
+                    // Восстанавливаем состояние
                     this.isAnimating = false;
                     this.initialAnimationPlayed = true;
-                    this.isInitialAnimationPlaying = false; // Разблокируем обработку движения мыши
+                    this.isInitialAnimationPlaying = false;
                     
                     // Восстанавливаем позицию мыши
                     this.mousePosition = { ...originalMousePosition };
@@ -743,9 +831,7 @@ class CustomGallery {
                     this.showElementsAfterIntro();
                     
                     // Запускаем автоматическое вращение на touch устройствах
-                    // Для первого слайда запускаем сразу после интро
                     if (this.isTouchOnly) {
-                        // Устанавливаем autoRotationX в 0
                         this.params.autoRotationX = 0;
                         this.startAutoRotation(0);
                     }

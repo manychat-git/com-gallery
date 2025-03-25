@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Gallery</title>
+    <style>
+        /* Предзагрузчик и скрытие контента при первоначальной загрузке */
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: #000;
+            overflow: hidden;
+        }
+        
+        #gallery-preloader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.8s ease;
+        }
+        
+        #gallery-preloader.hidden {
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+        }
+        
+        #gallery-preloader .logo-spinner {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #gallery-preloader .logo-spinner svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Основные стили */
+        .container {
+            width: 100%;
+            height: 100vh;
+            padding: 0;
+            margin: 0;
+        }
+        
+        [data-gallery="main-wrapper"] {
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+        
+        [data-gallery="container"] {
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* Слайды */
+        [data-gallery="slide"] {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+        }
+        
+        [data-gallery="slide"]:first-child {
+            display: block;
+        }
+        
+        /* Изображения */
+        [data-gallery="image"] {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center;
+            display: block;
+            opacity: 0;
+        }
+        
+        /* Навигация */
+        [data-gallery="navigation-wrapper"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 15;
+            pointer-events: none;
+        }
+        [data-gallery="navigation-wrapper"] > * {
+            pointer-events: auto;
+        }
+        
+        /* Кнопки prev/next */
+        [data-gallery="prev"],
+        [data-gallery="next"] {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: white;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+            font-size: 1rem;
+            font-weight: 400;
+            background: none;
+            border: none;
+            padding: 10px;
+            z-index: 20;
+        }
+        
+        [data-gallery="prev"] {
+            left: 20px;
+        }
+        
+        [data-gallery="next"] {
+            right: 20px;
+        }
+        
+        /* Пагинация */
+        [data-gallery="pagination-wrapper"] {
+            position: absolute;
+            top: 20px;
+            left: 0;
+            width: 100%;
+            z-index: 15;
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+        }
+        
+        [data-gallery="pagination-bullet"] {
+            width: 32px;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 2px;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        [data-gallery="bullet-progress"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 100%;
+            background: white;
+            transition: width 0.3s linear;
+        }
+        
+        [data-gallery="pagination-bullet"][data-active="true"] [data-gallery="bullet-progress"] {
+            width: 100%;
+        }
+        
+        /* Скрываем шаблонный буллет при инициализации */
+        [data-gallery="pagination-bullet"][data-template="true"] {
+            display: none; /* Будет скрыт на странице, но доступен для клонирования */
+        }
+        
+        /* Текст */
+        [data-gallery="text-container"] {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 5;
+            text-align: center;
+            color: white;
+            width: 80%;
+            max-width: 240px;
+            pointer-events: none;
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+        
+        /* Заголовок */
+        [data-gallery-text="title"] {
+            font-size: 1rem;
+            font-weight: 400;
+            margin-bottom: 0.5rem;
+        }
+        
+        /* Автор */
+        [data-gallery-text="author"] {
+            font-size: 1rem;
+            font-weight: 400;
+        }
+    </style>
+</head>
+<body>
+    <!-- Прелоадер -->
+    <div id="gallery-preloader">
+        <div class="logo-spinner">
+            <svg width="62" height="62" viewBox="0 0 62 62" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M61 31C61 47.5685 47.5685 61 31 61C14.4315 61 1 47.5685 1 31C1 14.4315 14.4315 1 31 1C47.5685 1 61 14.4315 61 31Z" fill="#0057FF"/>
+                <path d="M61 31C61 47.5685 47.5685 61 31 61C14.4315 61 1 47.5685 1 31C1 14.4315 14.4315 1 31 1C47.5685 1 61 14.4315 61 31Z" fill="#0057FF"/>
+                <path d="M61 31C41.0002 31 21.0004 31 1 31Z" fill="#0057FF"/>
+                <path d="M31 61C31 41.0002 31 21.0004 31 1Z" fill="#0057FF"/>
+                <path d="M61 31C61 47.5685 47.5685 61 31 61M61 31C61 14.4315 47.5685 1 31 1M61 31C41.0002 31 21.0004 31 1 31M31 61C14.4315 61 1 47.5685 1 31M31 61C31 41.0002 31 21.0004 31 1M1 31C1 14.4315 14.4315 1 31 1M31.3526 45.7822C33.0134 45.7865 34.6736 45.9017 36.3303 46.1392C41.6816 46.9069 46.9714 48.9305 52.1102 51.9912C50.39 49.1068 48.7702 45.8817 47.5754 42.0586C46.1703 37.5625 45.5123 32.3149 46.1454 27.0915C46.9648 20.3316 49.5188 14.9161 52.1102 10.5708C46.9714 13.6316 41.6816 15.6551 36.3303 16.4228C34.6737 16.6604 33.0134 16.7755 31.3526 16.7798M31.3516 45.7825C26.0425 45.7964 20.7474 47.0168 15.5717 49.3708C13.898 50.1318 12.2387 51.012 10.594 51.9915C12.3141 49.1071 13.9339 45.8823 15.1287 42.0589C16.5338 37.563 17.1918 32.3152 16.5587 27.0918C15.7394 20.3319 13.1853 14.9162 10.594 10.5711C12.2388 11.5508 13.898 12.4308 15.5717 13.1919C20.7474 15.5458 26.0425 16.766 31.3516 16.7801" stroke="black" stroke-width="0.8" stroke-miterlimit="10"/>
+            </svg>
+        </div>
+    </div>
+
+    <div class="container">
+        <div data-gallery="main-wrapper">
+            <div data-gallery="container">
+                <!-- Слайды -->
+                <div data-gallery="slide">
+                    <img src="assets/com-5-fin-min.jpg" data-gallery="image">
+                    <div data-gallery="text-container">
+                        <div data-gallery-text="title">Creators: More 'Brand Love Triangles' Are Coming</div>
+                        <div data-gallery-text="author">Alex Morgan</div>
+                    </div>
+                </div>
+                <div data-gallery="slide">
+                    <img src="assets/com-3-fin-min.jpg" data-gallery="image">
+                    <div data-gallery="text-container">
+                        <div data-gallery-text="title">Digital Horizons</div>
+                        <div data-gallery-text="author">Emma Stone</div>
+                    </div>
+                </div>
+                <div data-gallery="slide">
+                    <img src="assets/com-4-fin-min.jpg" data-gallery="image">
+                    <div data-gallery="text-container">
+                        <div data-gallery-text="title">Parallel Worlds</div>
+                        <div data-gallery-text="author">David Walker</div>
+                    </div>
+                </div>
+                
+                <!-- Навигация -->
+                <div data-gallery="navigation-wrapper">
+                    <button data-gallery="prev">prev</button>
+                    <button data-gallery="next">next</button>
+                </div>
+                
+                <!-- Пагинация с шаблонным буллетом -->
+                <div data-gallery="pagination-wrapper">
+                    <!-- Шаблонный буллет - будет использоваться как образец -->
+                    <div data-gallery="pagination-bullet" data-template="true">
+                        <!-- Внутренняя структура буллета - можно стилизовать по своему желанию -->
+                        <div data-gallery="bullet-progress"></div>
+                    </div>
+                    
+                    <!-- Буллеты ниже - для визуализации, будут заменены JavaScript -->
+                    <div data-gallery="pagination-bullet" data-active="true">
+                        <div data-gallery="bullet-progress"></div>
+                    </div>
+                    <div data-gallery="pagination-bullet">
+                        <div data-gallery="bullet-progress"></div>
+                    </div>
+                    <div data-gallery="pagination-bullet">
+                        <div data-gallery="bullet-progress"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрипты -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
+    <script src="intro-sphere.js"></script>
+    <script>
+        // Обработка загрузки страницы
+        window.addEventListener('load', function() {
+            // Инициализируем галерею
+            new CustomGallery();
+            
+            // Скрываем прелоадер после небольшой задержки
+            setTimeout(function() {
+                document.getElementById('gallery-preloader').classList.add('hidden');
+            }, 500); // Небольшая задержка для уверенности, что все готово к отображению
+        });
+    </script>
+</body>
+</html>

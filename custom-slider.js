@@ -21,6 +21,7 @@ uniform sampler2D uTextureNext;
 uniform float uTransition;
 uniform vec2 uMousePosition;
 uniform float uDirection;
+uniform float uAutoRotationX;
 varying vec2 vUv;
 varying vec2 vScreenPosition;
 
@@ -68,6 +69,9 @@ void main() {
     
     float transitionRotation = uTransition * PI * 2.0 * uDirection;
     
+    // Добавляем автоматическое вращение по оси X
+    float autoRotation = uAutoRotationX;
+    
     // Матрицы поворота
     mat2 mouseRotationMatrixX = mat2(
         cos(mouseRotationX), -sin(mouseRotationX),
@@ -84,10 +88,17 @@ void main() {
         sin(transitionRotation), cos(transitionRotation)
     );
     
+    // Матрица для автоматического вращения
+    mat2 autoRotationMatrix = mat2(
+        cos(autoRotation), -sin(autoRotation),
+        sin(autoRotation), cos(autoRotation)
+    );
+    
     // Применяем повороты
     dir.xz = mouseRotationMatrixX * dir.xz;
     dir.yz = mouseRotationMatrixY * dir.yz;
     dir.xz = transitionRotationMatrix * dir.xz;
+    dir.xz = autoRotationMatrix * dir.xz;
     
     // Смешивание текстур
     vec3 currentColor = getColor(dir, uTexture);
@@ -130,15 +141,8 @@ class CustomGallery {
         this.isInitialAnimationPlaying = false;
         this.textAnimationStarted = false;
         
-        // Флаг для определения мобильного устройства
-        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        
-        // Параметры автоматического вращения для мобильных устройств
-        this.autoRotation = {
-            active: false,
-            angle: 0,
-            speed: 0.01 // скорость вращения
-        };
+        // Флаг для отслеживания запуска автовращения после интро
+        this.autoRotationStartedAfterIntro = false;
         
         // Добавляем стили для плавных переходов
         this.addTransitionStyles();
@@ -177,8 +181,13 @@ class CustomGallery {
         this.targetMousePosition = { x: 0.5, y: 0.5 };
         this.params = {
             transition: 0,
-            direction: 1 // 1 для вправо, -1 для влево
+            direction: 1, // 1 для вправо, -1 для влево
+            autoRotationX: 0 // Добавляем параметр для автоматического вращения по оси X
         };
+        
+        // Флаг для определения touch-only устройства
+        this.isTouchOnly = false;
+        this.detectTouchOnlyDevice();
         
         // Устанавливаем начальное состояние без анимации между слайдами
         this.showSlide(this.currentSlide, true);
@@ -204,6 +213,11 @@ class CustomGallery {
             dot.addEventListener('click', () => {
                 if (this.isInitialAnimationPlaying) return; // Блокируем клики во время интро-анимации
                 if (this.currentSlide === index) return;
+                
+                // Если на мобильном устройстве, останавливаем автоматическое вращение
+                if (this.isTouchOnly) {
+                    this.stopAutoRotation();
+                }
                 
                 // Определяем направление для анимации
                 this.params.direction = index > this.currentSlide ? -1 : 1;
@@ -247,6 +261,7 @@ class CustomGallery {
         this.directionLocation = this.gl.getUniformLocation(this.program, 'uDirection');
         this.textureLocation = this.gl.getUniformLocation(this.program, 'uTexture');
         this.textureNextLocation = this.gl.getUniformLocation(this.program, 'uTextureNext');
+        this.autoRotationXLocation = this.gl.getUniformLocation(this.program, 'uAutoRotationX');
         
         // Создаем геометрию (прямоугольник на весь экран)
         const positions = new Float32Array([
@@ -357,8 +372,8 @@ class CustomGallery {
         // Если идет интро-анимация, игнорируем движение мыши
         if (this.isInitialAnimationPlaying) return;
         
-        // На мобильных устройствах не обрабатываем mousemove
-        if (this.isTouchDevice) return;
+        // Если это touch-only устройство, не обрабатываем движение мыши
+        if (this.isTouchOnly) return;
         
         const x = event.clientX / window.innerWidth;
         const y = 1 - event.clientY / window.innerHeight;
@@ -376,6 +391,9 @@ class CustomGallery {
         
         // Запоминаем текущий слайд
         this.currentSlide = index;
+        
+        // При переходе на новый слайд мы хотим сбросить автовращение,
+        // но сделать это плавно, в течение анимации перехода
         
         // Обновляем пагинацию
         this.dots.forEach((dot, i) => {
@@ -434,7 +452,33 @@ class CustomGallery {
                 [this.texture, this.nextTexture] = [this.nextTexture, this.texture];
                 this.params.transition = 0;
                 this.isAnimating = false;
+                
+                // На мобильных устройствах запускаем автоматическое вращение с нуля
+                if (this.isTouchOnly && this.initialAnimationPlayed) {
+                    this.params.autoRotationX = 0;
+                    this.startAutoRotation(0);
+                }
+                
                 return;
+            }
+            
+            // Запоминаем текущее значение автовращения
+            const currentAutoRotation = this.params.autoRotationX;
+            
+            // Создаем временную анимацию для плавного сброса автовращения во время перехода
+            if (this.isTouchOnly && this.initialAnimationPlayed) {
+                // Останавливаем текущую анимацию автовращения
+                if (this.autoRotationTween) {
+                    this.autoRotationTween.kill();
+                    this.autoRotationTween = null;
+                }
+                
+                // Плавно анимируем автовращение к 0 параллельно с переходом слайдов
+                gsap.to(this.params, {
+                    autoRotationX: 0,
+                    duration: 1.2, // Такая же длительность как у перехода
+                    ease: "power2.inOut" // Такой же тип анимации как у перехода
+                });
             }
             
             // Анимируем переход
@@ -465,6 +509,13 @@ class CustomGallery {
                     this.params.transition = 0;
                     this.isAnimating = false;
                     this.textAnimationStarted = false;
+                    
+                    // Запускаем автоматическое вращение на touch устройствах с нуля
+                    if (this.isTouchOnly && this.initialAnimationPlayed) {
+                        // Убедимся, что autoRotationX точно равен 0
+                        this.params.autoRotationX = 0;
+                        this.startAutoRotation(0);
+                    }
                 }
             });
         } else {
@@ -487,12 +538,24 @@ class CustomGallery {
     changeSlide(direction) {
         if (this.isAnimating) return;
         
-        // При смене слайда НЕ сбрасываем автоматическое вращение
-        // this.resetAutoRotation();
+        // Если на мобильном устройстве, останавливаем автоматическое вращение
+        if (this.isTouchOnly) {
+            this.stopAutoRotation();
+        }
         
         const newIndex = (this.currentSlide + direction + this.slideCount) % this.slideCount;
         this.currentSlide = newIndex;
         this.showSlide(this.currentSlide);
+    }
+    
+    // Метод для остановки автоматического вращения
+    stopAutoRotation() {
+        if (this.autoRotationTween) {
+            this.autoRotationTween.kill();
+            this.autoRotationTween = null;
+            // Не сохраняем значение вращения, так как мы хотим,
+            // чтобы при переключении оно начиналось с нуля
+        }
     }
     
     // Основной метод рендеринга WebGL
@@ -501,28 +564,10 @@ class CustomGallery {
         
         this.resizeCanvas();
         
-        // Обновляем автоматическое вращение для мобильных устройств
-        if (this.isTouchDevice && this.autoRotation.active && !this.isAnimating) {
-            // Увеличиваем угол вращения
-            this.autoRotation.angle += this.autoRotation.speed;
-            
-            // Преобразуем угол в диапазон [0, 2π] для полного 360-градусного вращения
-            const normalizedAngle = this.autoRotation.angle % (Math.PI * 2);
-            
-            // Устанавливаем mousePosition.x для вращения вокруг оси X
-            // Используем mouseInfluenceX = 0.3 из шейдера для согласованности
-            const mouseInfluenceX = 0.3;
-            this.mousePosition.x = 0.5 - Math.sin(normalizedAngle) * mouseInfluenceX;
-            
-            // Держим Y постоянным на центральной линии
-            this.mousePosition.y = 0.5;
-        } 
-        else if (!this.isTouchDevice && !this.isAnimating) {
-            // Интерполяция позиции мыши для плавного эффекта (только для desktop)
-            const interpolationFactor = 0.1;
-            this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
-            this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
-        }
+        // Интерполяция позиции мыши для плавного эффекта
+        const interpolationFactor = 0.1;
+        this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
+        this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
         
         // Очищаем canvas
         this.gl.clearColor(0, 0, 0, 1);
@@ -543,6 +588,9 @@ class CustomGallery {
         // Устанавливаем параметры перехода
         this.gl.uniform1f(this.transitionLocation, this.params.transition);
         this.gl.uniform1f(this.directionLocation, this.params.direction);
+        
+        // Устанавливаем параметр автоматического вращения
+        this.gl.uniform1f(this.autoRotationXLocation, this.params.autoRotationX);
         
         // Активируем текстуры
         this.gl.activeTexture(this.gl.TEXTURE0);
@@ -593,6 +641,11 @@ class CustomGallery {
             const diff = moveX - startX;
             
             if (Math.abs(diff) > threshold) {
+                // Если на мобильном устройстве, останавливаем автоматическое вращение
+                if (this.isTouchOnly) {
+                    this.stopAutoRotation();
+                }
+                
                 if (diff > 0) {
                     this.params.direction = 1; // Вправо
                     this.changeSlide(-1); // Свайп вправо -> предыдущий слайд
@@ -622,11 +675,21 @@ class CustomGallery {
             
             switch (e.key) {
                 case 'ArrowLeft':
+                    // Если на мобильном устройстве, останавливаем автоматическое вращение
+                    if (this.isTouchOnly) {
+                        this.stopAutoRotation();
+                    }
+                    
                     // Переход к предыдущему слайду (стрелка влево)
                     this.params.direction = 1;
                     this.changeSlide(-1);
                     break;
                 case 'ArrowRight':
+                    // Если на мобильном устройстве, останавливаем автоматическое вращение
+                    if (this.isTouchOnly) {
+                        this.stopAutoRotation();
+                    }
+                    
                     // Переход к следующему слайду (стрелка вправо)
                     this.params.direction = -1;
                     this.changeSlide(1);
@@ -648,7 +711,8 @@ class CustomGallery {
         // Блокируем обработку движения мыши на время анимации
         this.isInitialAnimationPlaying = true;
         
-        // Запоминаем начальную позицию мыши (центр)
+        // Сохраняем и устанавливаем начальную позицию мыши (центр)
+        const originalMousePosition = { ...this.mousePosition };
         const centerPosition = { x: 0.5, y: 0.5 };
         this.mousePosition = { ...centerPosition };
         this.targetMousePosition = { ...centerPosition };
@@ -671,15 +735,20 @@ class CustomGallery {
                     this.initialAnimationPlayed = true;
                     this.isInitialAnimationPlaying = false; // Разблокируем обработку движения мыши
                     
-                    // Для мобильных устройств активируем автоматическое вращение
-                    if (this.isTouchDevice) {
-                        // Начинаем с центральной позиции для плавного старта
-                        this.autoRotation.angle = 0; 
-                        this.autoRotation.active = true;
-                    }
+                    // Восстанавливаем позицию мыши
+                    this.mousePosition = { ...originalMousePosition };
+                    this.targetMousePosition = { ...originalMousePosition };
                     
                     // Показываем навигацию, пагинацию и текст
                     this.showElementsAfterIntro();
+                    
+                    // Запускаем автоматическое вращение на touch устройствах
+                    // Для первого слайда запускаем сразу после интро
+                    if (this.isTouchOnly) {
+                        // Устанавливаем autoRotationX в 0
+                        this.params.autoRotationX = 0;
+                        this.startAutoRotation(0);
+                    }
                     
                     // Диспатчим событие завершения начальной анимации
                     const event = new CustomEvent('galleryInitialAnimationComplete');
@@ -784,6 +853,12 @@ class CustomGallery {
                 // Добавляем обработчик клика
                 bullet.addEventListener('click', () => {
                     if (this.currentSlide === i) return;
+                    
+                    // Если на мобильном устройстве, останавливаем автоматическое вращение
+                    if (this.isTouchOnly) {
+                        this.stopAutoRotation();
+                    }
+                    
                     this.params.direction = i > this.currentSlide ? -1 : 1;
                     this.currentSlide = i;
                     this.showSlide(this.currentSlide);
@@ -814,6 +889,12 @@ class CustomGallery {
                 // Добавляем обработчик клика
                 bullet.addEventListener('click', () => {
                     if (this.currentSlide === i) return;
+                    
+                    // Если на мобильном устройстве, останавливаем автоматическое вращение
+                    if (this.isTouchOnly) {
+                        this.stopAutoRotation();
+                    }
+                    
                     this.params.direction = i > this.currentSlide ? -1 : 1;
                     this.currentSlide = i;
                     this.showSlide(this.currentSlide);
@@ -854,10 +935,41 @@ class CustomGallery {
         document.head.appendChild(style);
     }
     
-    // Метод для плавного сброса автоматического вращения при смене слайда
-    // Этот метод больше не используется, но оставлен для совместимости
-    resetAutoRotation() {
-        // Метод оставлен пустым - не меняем положение при смене слайдов
+    // Определяем touch-only устройство
+    detectTouchOnlyDevice() {
+        // Используем более надежное определение touch-only устройства
+        this.isTouchOnly = ('ontouchstart' in window || navigator.maxTouchPoints > 0) && 
+                          !window.matchMedia('(pointer: fine)').matches;
+        console.log('Touch-only device detected:', this.isTouchOnly);
+    }
+    
+    // Запуск автоматического вращения на мобильных устройствах
+    startAutoRotation(startRotation = 0) {
+        // Останавливаем предыдущую анимацию если она уже запущена
+        if (this.autoRotationTween) {
+            this.autoRotationTween.kill();
+        }
+        
+        // Используем переданное начальное значение вращения
+        this.params.autoRotationX = startRotation;
+        
+        // Используем минимальную задержку для всех слайдов
+        let delay = 0.0;
+        
+        // Создаем непрерывную анимацию вращения на 360 градусов
+        this.autoRotationTween = gsap.to(this.params, {
+            // Анимируем к полному обороту, начиная с текущего положения
+            autoRotationX: startRotation + Math.PI * 2, 
+            duration: 30, // Медленное вращение (30 секунд на полный оборот)
+            ease: "none",
+            delay: delay, // Минимальная задержка
+            repeat: -1, // Бесконечное повторение
+            onRepeat: () => {
+                // Сбрасываем значение для избежания проблем с большими числами
+                // но сохраняем текущее положение
+                this.params.autoRotationX = this.params.autoRotationX % (Math.PI * 2);
+            }
+        });
     }
 }
 

@@ -208,6 +208,9 @@ class CustomGallery {
         // Свайп на мобильных
         this.setupSwipe();
         
+        // Управление с клавиатуры
+        this.setupKeyboardNavigation();
+        
         // Запускаем анимацию
         this.animate();
     }
@@ -575,6 +578,27 @@ class CustomGallery {
         
         this.container.addEventListener('mousedown', handleTouchStart);
         this.container.addEventListener('touchstart', handleTouchStart);
+    }
+    
+    // Добавляем метод для управления с клавиатуры
+    setupKeyboardNavigation() {
+        document.addEventListener('keydown', (e) => {
+            // Если идет анимация или интро-анимация, игнорируем нажатия клавиш
+            if (this.isAnimating || this.isInitialAnimationPlaying) return;
+            
+            switch (e.key) {
+                case 'ArrowLeft':
+                    // Переход к предыдущему слайду (стрелка влево)
+                    this.params.direction = 1;
+                    this.changeSlide(-1);
+                    break;
+                case 'ArrowRight':
+                    // Переход к следующему слайду (стрелка вправо)
+                    this.params.direction = -1;
+                    this.changeSlide(1);
+                    break;
+            }
+        });
     }
     
     // Анимационный цикл

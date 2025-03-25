@@ -130,6 +130,16 @@ class CustomGallery {
         this.isInitialAnimationPlaying = false;
         this.textAnimationStarted = false;
         
+        // Флаг для определения мобильного устройства
+        this.isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        // Параметры автоматического вращения для мобильных устройств
+        this.autoRotation = {
+            active: false,
+            angle: 0,
+            speed: 0.01 // скорость вращения
+        };
+        
         // Добавляем стили для плавных переходов
         this.addTransitionStyles();
         
@@ -347,6 +357,9 @@ class CustomGallery {
         // Если идет интро-анимация, игнорируем движение мыши
         if (this.isInitialAnimationPlaying) return;
         
+        // На мобильных устройствах не обрабатываем mousemove
+        if (this.isTouchDevice) return;
+        
         const x = event.clientX / window.innerWidth;
         const y = 1 - event.clientY / window.innerHeight;
         
@@ -474,6 +487,9 @@ class CustomGallery {
     changeSlide(direction) {
         if (this.isAnimating) return;
         
+        // При смене слайда НЕ сбрасываем автоматическое вращение
+        // this.resetAutoRotation();
+        
         const newIndex = (this.currentSlide + direction + this.slideCount) % this.slideCount;
         this.currentSlide = newIndex;
         this.showSlide(this.currentSlide);
@@ -485,10 +501,19 @@ class CustomGallery {
         
         this.resizeCanvas();
         
-        // Интерполяция позиции мыши для плавного эффекта
-        const interpolationFactor = 0.1;
-        this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
-        this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
+        // Обновляем автоматическое вращение для мобильных устройств
+        if (this.isTouchDevice && this.autoRotation.active && !this.isAnimating && !this.isInitialAnimationPlaying) {
+            this.autoRotation.angle += this.autoRotation.speed;
+            // Непрерывное вращение по кругу в одну сторону
+            this.mousePosition.x = 0.5 - Math.cos(this.autoRotation.angle) * 0.3;
+            this.mousePosition.y = 0.5; // Фиксируем позицию по Y
+        }
+        else {
+            // Интерполяция позиции мыши для плавного эффекта (только для desktop)
+            const interpolationFactor = 0.1;
+            this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
+            this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
+        }
         
         // Очищаем canvas
         this.gl.clearColor(0, 0, 0, 1);
@@ -639,8 +664,13 @@ class CustomGallery {
                     this.isInitialAnimationPlaying = false; // Разблокируем обработку движения мыши
                     
                     // Восстанавливаем позицию мыши
-                    this.mousePosition = { ...originalMousePosition };
-                    this.targetMousePosition = { ...originalMousePosition };
+                    if (!this.isTouchDevice) {
+                        this.mousePosition = { ...originalMousePosition };
+                        this.targetMousePosition = { ...originalMousePosition };
+                    } else {
+                        // Активируем автоматическое вращение для мобильных устройств
+                        this.autoRotation.active = true;
+                    }
                     
                     // Показываем навигацию, пагинацию и текст
                     this.showElementsAfterIntro();
@@ -816,6 +846,15 @@ class CustomGallery {
             }
         `;
         document.head.appendChild(style);
+    }
+    
+    // Метод для плавного сброса автоматического вращения при смене слайда
+    // Этот метод больше не используется, но оставлен для совместимости
+    resetAutoRotation() {
+        if (!this.isTouchDevice || !this.autoRotation.active) return;
+        
+        // Не делаем ничего, чтобы сохранить текущее положение вращения
+        // Метод оставлен для возможного использования в будущем
     }
 }
 

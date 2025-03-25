@@ -137,7 +137,7 @@ class CustomGallery {
         this.autoRotation = {
             active: false,
             angle: 0,
-            speed: 0.01 // скорость вращения
+            speed: 0.005 // скорость вращения (уменьшена)
         };
         
         // Добавляем стили для плавных переходов
@@ -502,13 +502,14 @@ class CustomGallery {
         this.resizeCanvas();
         
         // Обновляем автоматическое вращение для мобильных устройств
-        if (this.isTouchDevice && this.autoRotation.active && !this.isAnimating && !this.isInitialAnimationPlaying) {
+        if (this.isTouchDevice && this.autoRotation.active && !this.isAnimating) {
             this.autoRotation.angle += this.autoRotation.speed;
-            // Непрерывное вращение по кругу в одну сторону
-            this.mousePosition.x = 0.5 - Math.cos(this.autoRotation.angle) * 0.3;
-            this.mousePosition.y = 0.5; // Фиксируем позицию по Y
-        }
-        else {
+            // Непрерывное вращение только по оси X
+            this.mousePosition.x = 0.5 + Math.sin(this.autoRotation.angle) * 0.2;
+            // Держим Y постоянным для избежания вертикальных движений
+            this.mousePosition.y = 0.5;
+        } 
+        else if (!this.isTouchDevice && !this.isAnimating) {
             // Интерполяция позиции мыши для плавного эффекта (только для desktop)
             const interpolationFactor = 0.1;
             this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
@@ -639,8 +640,7 @@ class CustomGallery {
         // Блокируем обработку движения мыши на время анимации
         this.isInitialAnimationPlaying = true;
         
-        // Сохраняем и устанавливаем начальную позицию мыши (центр)
-        const originalMousePosition = { ...this.mousePosition };
+        // Запоминаем начальную позицию мыши (центр)
         const centerPosition = { x: 0.5, y: 0.5 };
         this.mousePosition = { ...centerPosition };
         this.targetMousePosition = { ...centerPosition };
@@ -663,12 +663,10 @@ class CustomGallery {
                     this.initialAnimationPlayed = true;
                     this.isInitialAnimationPlaying = false; // Разблокируем обработку движения мыши
                     
-                    // Восстанавливаем позицию мыши
-                    if (!this.isTouchDevice) {
-                        this.mousePosition = { ...originalMousePosition };
-                        this.targetMousePosition = { ...originalMousePosition };
-                    } else {
-                        // Активируем автоматическое вращение для мобильных устройств
+                    // Для мобильных устройств активируем автоматическое вращение
+                    if (this.isTouchDevice) {
+                        // Начинаем с центральной позиции для плавного старта
+                        this.autoRotation.angle = 0; 
                         this.autoRotation.active = true;
                     }
                     
@@ -851,10 +849,7 @@ class CustomGallery {
     // Метод для плавного сброса автоматического вращения при смене слайда
     // Этот метод больше не используется, но оставлен для совместимости
     resetAutoRotation() {
-        if (!this.isTouchDevice || !this.autoRotation.active) return;
-        
-        // Не делаем ничего, чтобы сохранить текущее положение вращения
-        // Метод оставлен для возможного использования в будущем
+        // Метод оставлен пустым - не меняем положение при смене слайдов
     }
 }
 

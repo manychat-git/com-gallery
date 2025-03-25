@@ -504,10 +504,15 @@ class CustomGallery {
         // Обновляем автоматическое вращение для мобильных устройств
         if (this.isTouchDevice && this.autoRotation.active && !this.isAnimating) {
             this.autoRotation.angle += this.autoRotation.speed;
-            // Непрерывное вращение только по оси X
-            this.mousePosition.x = 0.5 + Math.sin(this.autoRotation.angle) * 0.2;
-            // Держим Y постоянным для избежания вертикальных движений
+            // Непрерывное вращение только в одну сторону (вправо)
+            this.mousePosition.x = 0.5 - this.autoRotation.angle * 0.05;
+            // Держим Y постоянным
             this.mousePosition.y = 0.5;
+            
+            // Сбрасываем угол, если он слишком большой, чтобы избежать проблем с точностью float
+            if (this.mousePosition.x < 0.1) {
+                this.autoRotation.angle = 0;
+            }
         } 
         else if (!this.isTouchDevice && !this.isAnimating) {
             // Интерполяция позиции мыши для плавного эффекта (только для desktop)

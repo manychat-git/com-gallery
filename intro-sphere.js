@@ -1088,5 +1088,11 @@ class CustomGallery {
     }
 }
 
-// Экспортируем класс в глобальное пространство имен для инициализации из HTML
+// Инициализация слайдера после загрузки DOM
+document.addEventListener('DOMContentLoaded', () => {
+    // Создаем экземпляр галереи
+    new CustomGallery();
+});
+
+// Экспортируем класс в глобальное пространство имен
 window.CustomGallery = CustomGallery;

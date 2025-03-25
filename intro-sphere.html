@@ -279,11 +279,6 @@
     <script>
         // Обработка загрузки страницы
         window.addEventListener('load', function() {
-            // Отмечаем, что галерея будет инициализирована из HTML
-            window.customGalleryInitialized = true;
-            // Инициализируем галерею
-            new CustomGallery();
-            
             // Скрываем прелоадер после небольшой задержки
             setTimeout(function() {
                 document.getElementById('gallery-preloader').classList.add('hidden');

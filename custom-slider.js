@@ -137,7 +137,7 @@ class CustomGallery {
         this.autoRotation = {
             active: false,
             angle: 0,
-            speed: 0.005 // скорость вращения (уменьшена)
+            speed: 0.05 // скорость вращения (уменьшена)
         };
         
         // Добавляем стили для плавных переходов
@@ -504,15 +504,10 @@ class CustomGallery {
         // Обновляем автоматическое вращение для мобильных устройств
         if (this.isTouchDevice && this.autoRotation.active && !this.isAnimating) {
             this.autoRotation.angle += this.autoRotation.speed;
-            // Непрерывное вращение только в одну сторону (вправо)
-            this.mousePosition.x = 0.5 - this.autoRotation.angle * 0.05;
+            // Непрерывное вращение по кругу в одну сторону (вправо) с использованием sin/cos для циклического движения
+            this.mousePosition.x = 0.5 - Math.cos(this.autoRotation.angle) * 0.3;
             // Держим Y постоянным
             this.mousePosition.y = 0.5;
-            
-            // Сбрасываем угол, если он слишком большой, чтобы избежать проблем с точностью float
-            if (this.mousePosition.x < 0.1) {
-                this.autoRotation.angle = 0;
-            }
         } 
         else if (!this.isTouchDevice && !this.isAnimating) {
             // Интерполяция позиции мыши для плавного эффекта (только для desktop)

@@ -504,10 +504,10 @@ class CustomGallery {
         // Обновляем автоматическое вращение для мобильных устройств
         if (this.isTouchDevice && this.autoRotation.active && !this.isAnimating) {
             this.autoRotation.angle += this.autoRotation.speed;
-            // Непрерывное вращение по кругу в одну сторону (вправо) с использованием sin/cos для циклического движения
-            this.mousePosition.x = 0.5 - Math.cos(this.autoRotation.angle) * 0.3;
-            // Держим Y постоянным
-            this.mousePosition.y = 0.5;
+            
+            // Непрерывное вращение ТОЛЬКО по оси X на 360 градусов
+            this.mousePosition.x = 0.5 + Math.sin(this.autoRotation.angle) * 0.45;
+            this.mousePosition.y = 0.5; // Фиксируем позицию Y (без вращения по вертикали)
         } 
         else if (!this.isTouchDevice && !this.isAnimating) {
             // Интерполяция позиции мыши для плавного эффекта (только для desktop)

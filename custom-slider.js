@@ -128,6 +128,7 @@ class CustomGallery {
         // Флаги для интро-анимации
         this.initialAnimationPlayed = false;
         this.isInitialAnimationPlaying = false;
+        this.textAnimationStarted = false;
         
         // Добавляем стили для плавных переходов
         this.addTransitionStyles();
@@ -365,9 +366,33 @@ class CustomGallery {
             // Удаляем активный статус со всех буллетов
             dot.removeAttribute('data-active');
             
+            // Находим элемент прогресса внутри буллета для сброса анимации
+            const progress = dot.querySelector('[data-gallery="bullet-progress"]');
+            if (progress && !skipAnimation) {
+                // Сбрасываем анимацию всех буллетов
+                gsap.to(progress, {
+                    scaleX: 0,
+                    duration: 0.3,
+                    ease: "power1.out"
+                });
+            }
+            
             // Устанавливаем активный статус для текущего буллета
             if (i === index) {
                 dot.setAttribute('data-active', 'true');
+                
+                // Находим элемент прогресса внутри буллета (если есть)
+                const progress = dot.querySelector('[data-gallery="bullet-progress"]');
+                if (progress && !skipAnimation) {
+                    // Сначала сбрасываем прогресс
+                    gsap.set(progress, { scaleX: 0 });
+                    // Затем анимируем вместе с переходом слайда
+                    gsap.to(progress, {
+                        scaleX: 1,
+                        duration: 1.2,
+                        ease: "power2.inOut"
+                    });
+                }
             }
         });
         
@@ -401,19 +426,29 @@ class CustomGallery {
                 transition: 1,
                 duration: 1.2,
                 ease: "power2.inOut",
+                onUpdate: () => {
+                    // Показываем текст слайда, когда анимация близка к завершению
+                    if (this.params.transition > 0.95 && !this.textAnimationStarted) {
+                        this.textAnimationStarted = true;
+                        
+                        if (!this.isInitialAnimationPlaying) {
+                            const textContainer = this.slides[index].querySelector('[data-gallery="text-container"]');
+                            if (textContainer) {
+                                gsap.to(textContainer, { 
+                                    opacity: 1, 
+                                    duration: 0.3,
+                                    delay: 0 
+                                });
+                            }
+                        }
+                    }
+                },
                 onComplete: () => {
                     // По завершении анимации меняем текстуры местами
                     [this.texture, this.nextTexture] = [this.nextTexture, this.texture];
                     this.params.transition = 0;
                     this.isAnimating = false;
-                    
-                    // Показываем текст нового слайда, если интро-анимация завершена
-                    if (!this.isInitialAnimationPlaying) {
-                        const textContainer = this.slides[index].querySelector('[data-gallery="text-container"]');
-                        if (textContainer) {
-                            gsap.to(textContainer, { opacity: 1, duration: 0.3, delay: 0 });
-                        }
-                    }
+                    this.textAnimationStarted = false;
                 }
             });
         } else {
@@ -742,6 +777,18 @@ class CustomGallery {
             [data-gallery="pagination-wrapper"],
             [data-gallery="text-container"] {
                 transition: opacity 0.3s ease;
+            }
+            
+            [data-gallery="bullet-progress"] {
+                display: block;
+                width: 100%;
+                height: 100%;
+                transform-origin: left center;
+                transform: scaleX(0);
+            }
+            
+            [data-gallery="pagination-bullet"][data-active="true"] [data-gallery="bullet-progress"] {
+                transform: scaleX(1);
             }
         `;
         document.head.appendChild(style);

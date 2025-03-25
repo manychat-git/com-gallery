@@ -1090,7 +1090,11 @@ class CustomGallery {
 
 // Инициализация слайдера после загрузки
 document.addEventListener('DOMContentLoaded', () => {
-    window.CustomGallery = CustomGallery;
+    // Проверяем, не была ли галерея уже инициализирована через HTML
+    if (!window.customGalleryInitialized) {
+        window.customGalleryInitialized = true;
+        new CustomGallery();
+    }
 });
 
 // Также делаем класс доступным в глобальном пространстве имен

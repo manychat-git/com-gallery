@@ -122,6 +122,19 @@ class CustomGallery {
         this.paginationWrapper = document.querySelector('[data-gallery="pagination-wrapper"]');
         this.dots = document.querySelectorAll('[data-gallery="pagination-bullet"]:not([data-template="true"])');
         
+        // Текстовые контейнеры
+        this.textContainers = document.querySelectorAll('[data-gallery="text-container"]');
+        
+        // Флаги для интро-анимации
+        this.initialAnimationPlayed = false;
+        this.isInitialAnimationPlaying = false;
+        
+        // Добавляем стили для плавных переходов
+        this.addTransitionStyles();
+        
+        // Скрываем навигацию, пагинацию и текст при загрузке
+        this.hideElementsDuringIntro();
+        
         // Если пагинация пустая, создаем буллеты динамически
         if (this.paginationWrapper && (!this.dots || this.dots.length === 0)) {
             this.createPaginationBullets();
@@ -156,16 +169,21 @@ class CustomGallery {
             direction: 1 // 1 для вправо, -1 для влево
         };
         
-        // Настройка начального состояния
-        this.showSlide(this.currentSlide);
+        // Устанавливаем начальное состояние без анимации между слайдами
+        this.showSlide(this.currentSlide, true);
+        
+        // Запускаем интро-анимацию
+        this.playInitialAnimation();
         
         // Привязка событий
         this.prevButton.addEventListener('click', () => {
+            if (this.isInitialAnimationPlaying) return; // Блокируем клики во время интро-анимации
             this.params.direction = 1; // Направление анимации
             this.changeSlide(-1);
         });
         
         this.nextButton.addEventListener('click', () => {
+            if (this.isInitialAnimationPlaying) return; // Блокируем клики во время интро-анимации
             this.params.direction = -1; // Направление анимации
             this.changeSlide(1);
         });
@@ -173,6 +191,7 @@ class CustomGallery {
         // Обработчики для пагинации
         this.dots.forEach((dot, index) => {
             dot.addEventListener('click', () => {
+                if (this.isInitialAnimationPlaying) return; // Блокируем клики во время интро-анимации
                 if (this.currentSlide === index) return;
                 
                 // Определяем направление для анимации
@@ -321,6 +340,9 @@ class CustomGallery {
     
     // Обработчик движения мыши
     handleMouseMove(event) {
+        // Если идет интро-анимация, игнорируем движение мыши
+        if (this.isInitialAnimationPlaying) return;
+        
         const x = event.clientX / window.innerWidth;
         const y = 1 - event.clientY / window.innerHeight;
         
@@ -331,8 +353,8 @@ class CustomGallery {
     }
     
     // Показать определенный слайд с WebGL анимацией
-    async showSlide(index) {
-        if (this.isAnimating) return;
+    async showSlide(index, skipAnimation = false) {
+        if (this.isAnimating && !skipAnimation) return;
         this.isAnimating = true;
         
         // Запоминаем текущий слайд
@@ -349,9 +371,13 @@ class CustomGallery {
             }
         });
         
-        // Скрываем все слайды
+        // Скрываем все слайды и их текст
         this.slides.forEach(slide => {
             slide.style.display = 'none';
+            const textContainer = slide.querySelector('[data-gallery="text-container"]');
+            if (textContainer && !this.isInitialAnimationPlaying) {
+                textContainer.style.opacity = '0';
+            }
         });
         
         // Показываем текущий слайд
@@ -360,6 +386,15 @@ class CustomGallery {
         if (this.useWebGL) {
             // Загружаем новую текстуру для следующего слайда
             await this.loadImageTexture(this.slides[index].querySelector('[data-gallery="image"]').src, this.nextTexture);
+            
+            if (skipAnimation) {
+                // Если пропускаем анимацию, просто устанавливаем текстуру как текущую
+                // Используем nextTexture, который мы только что загрузили
+                [this.texture, this.nextTexture] = [this.nextTexture, this.texture];
+                this.params.transition = 0;
+                this.isAnimating = false;
+                return;
+            }
             
             // Анимируем переход
             gsap.to(this.params, {
@@ -371,12 +406,28 @@ class CustomGallery {
                     [this.texture, this.nextTexture] = [this.nextTexture, this.texture];
                     this.params.transition = 0;
                     this.isAnimating = false;
+                    
+                    // Показываем текст нового слайда, если интро-анимация завершена
+                    if (!this.isInitialAnimationPlaying) {
+                        const textContainer = this.slides[index].querySelector('[data-gallery="text-container"]');
+                        if (textContainer) {
+                            gsap.to(textContainer, { opacity: 1, duration: 0.3, delay: 0 });
+                        }
+                    }
                 }
             });
         } else {
             // Резервная анимация без WebGL            
             setTimeout(() => {
                 this.isAnimating = false;
+                
+                // Показываем текст нового слайда, если интро-анимация завершена
+                if (!this.isInitialAnimationPlaying) {
+                    const textContainer = this.slides[index].querySelector('[data-gallery="text-container"]');
+                    if (textContainer) {
+                        gsap.to(textContainer, { opacity: 1, duration: 0.5, delay: 0.05 });
+                    }
+                }
             }, 600);
         }
     }
@@ -497,6 +548,91 @@ class CustomGallery {
         requestAnimationFrame(() => this.animate());
     }
     
+    // Метод для запуска интро-анимации
+    playInitialAnimation() {
+        if (this.initialAnimationPlayed || !this.useWebGL) return;
+        
+        // Блокируем обработку движения мыши на время анимации
+        this.isInitialAnimationPlaying = true;
+        
+        // Сохраняем и устанавливаем начальную позицию мыши (центр)
+        const originalMousePosition = { ...this.mousePosition };
+        const centerPosition = { x: 0.5, y: 0.5 };
+        this.mousePosition = { ...centerPosition };
+        this.targetMousePosition = { ...centerPosition };
+        
+        // Запускаем два полных оборота
+        gsap.timeline()
+            .to(this.params, {
+                transition: 2, // Два полных оборота
+                duration: 2.5, // Длительность 2.5 секунды
+                ease: "expo.inOut", // Эффект easing - быстрый старт и конец
+                onStart: () => {
+                    // Установим направление анимации на обратное для эффекта
+                    this.params.direction = -1;
+                    this.isAnimating = true;
+                },
+                onComplete: () => {
+                    // Восстанавливаем состояние после анимации
+                    this.params.transition = 0;
+                    this.isAnimating = false;
+                    this.initialAnimationPlayed = true;
+                    this.isInitialAnimationPlaying = false; // Разблокируем обработку движения мыши
+                    
+                    // Восстанавливаем позицию мыши
+                    this.mousePosition = { ...originalMousePosition };
+                    this.targetMousePosition = { ...originalMousePosition };
+                    
+                    // Показываем навигацию, пагинацию и текст
+                    this.showElementsAfterIntro();
+                    
+                    // Диспатчим событие завершения начальной анимации
+                    const event = new CustomEvent('galleryInitialAnimationComplete');
+                    document.dispatchEvent(event);
+                }
+            });
+    }
+    
+    // Метод для скрытия элементов во время интро-анимации
+    hideElementsDuringIntro() {
+        // Скрываем навигацию
+        if (this.prevButton) this.prevButton.style.opacity = '0';
+        if (this.nextButton) this.nextButton.style.opacity = '0';
+        
+        // Скрываем пагинацию
+        if (this.paginationWrapper) this.paginationWrapper.style.opacity = '0';
+        
+        // Скрываем текст
+        this.textContainers.forEach(container => {
+            container.style.opacity = '0';
+        });
+    }
+    
+    // Метод для показа элементов после интро-анимации
+    showElementsAfterIntro() {
+        // Показываем навигацию с анимацией
+        if (this.prevButton) {
+            gsap.to(this.prevButton, { opacity: 1, duration: 0.3, delay: 0.1 });
+        }
+        if (this.nextButton) {
+            gsap.to(this.nextButton, { opacity: 1, duration: 0.3, delay: 0.1 });
+        }
+        
+        // Показываем пагинацию с анимацией
+        if (this.paginationWrapper) {
+            gsap.to(this.paginationWrapper, { opacity: 1, duration: 0.3, delay: 0.1 });
+        }
+        
+        // Показываем текст активного слайда с анимацией
+        const activeSlide = this.slides[this.currentSlide];
+        if (activeSlide) {
+            const textContainer = activeSlide.querySelector('[data-gallery="text-container"]');
+            if (textContainer) {
+                gsap.to(textContainer, { opacity: 1, duration: 0.3, delay: 0.1 });
+            }
+        }
+    }
+    
     // Добавляем новый метод для создания пагинационных буллетов
     createPaginationBullets() {
         // Находим шаблонный буллет
@@ -594,6 +730,21 @@ class CustomGallery {
         
         // Обновляем ссылку на буллеты
         this.dots = document.querySelectorAll('[data-gallery="pagination-bullet"]:not([data-template="true"])');
+    }
+    
+    // Добавляем стили для плавных переходов
+    addTransitionStyles() {
+        // Создаем элемент стиля
+        const style = document.createElement('style');
+        style.textContent = `
+            [data-gallery="prev"],
+            [data-gallery="next"],
+            [data-gallery="pagination-wrapper"],
+            [data-gallery="text-container"] {
+                transition: opacity 0.3s ease;
+            }
+        `;
+        document.head.appendChild(style);
     }
 }
 

@@ -931,6 +931,10 @@ class CustomGallery {
             [data-gallery="pagination-bullet"][data-active="true"] [data-gallery="bullet-progress"] {
                 transform: scaleX(1);
             }
+
+            [data-gallery="pagination-bullet"][data-template="true"] {
+                display: none;
+            }
         `;
         document.head.appendChild(style);
     }

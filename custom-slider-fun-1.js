@@ -984,20 +984,9 @@ class CustomGallery {
 }
 
 // Инициализация слайдера после загрузки
-document.addEventListener('DOMContentLoaded', () => {
-    // Проверяем, не была ли галерея уже инициализирована через HTML
-    if (!window.customGalleryInitialized) {
-        window.customGalleryInitialized = true;
-        new CustomGallery();
-    }
-});
-
-// В HTML можно использовать:
-// window.addEventListener('load', function() {
-//     window.customGalleryInitialized = true;
+// Заменяем событие DOMContentLoaded на инициализацию из HTML
+// document.addEventListener('DOMContentLoaded', () => {
 //     new CustomGallery();
-//     
-//     setTimeout(function() {
-//         document.getElementById('gallery-preloader').classList.add('hidden');
-//     }, 500);
 // });
+// Инициализация будет вызываться из HTML после скрытия прелоадера
+

@@ -197,6 +197,13 @@ const FRAGMENT_SHADER =
 "    gl_FragColor = fragColor;\n" +
 "}";
 
+// Обработка прелоадера
+window.addEventListener('load', function() {
+    setTimeout(function() {
+        document.getElementById('gallery-preloader').classList.add('hidden');
+    }, 100);
+});
+
 class CustomGallery {
     constructor() {
         // Основной враппер
@@ -821,19 +828,21 @@ class CustomGallery {
     playInitialAnimation() {
         if (this.initialAnimationPlayed || !this.useWebGL) return;
         
-        // Блокируем обработку движения мыши на время анимации
-        this.isInitialAnimationPlaying = true;
-        
-        // Устанавливаем начальные значения
-        this.params.unwrapProgress = 0; // Начинаем со сферы, видимой на расстоянии
-        this.params.zoom = 0; // Начинаем с полностью невидимой сферы
-        this.params.rotation = 0; // Начинаем с нулевого вращения
-        
-        // Создаем анимацию
-                    this.isAnimating = true;
-        
-        // Создаем timeline для последовательной анимации
-        const timeline = gsap.timeline({
+        // Добавляем задержку 100мс перед началом анимации
+        setTimeout(() => {
+            // Блокируем обработку движения мыши на время анимации
+            this.isInitialAnimationPlaying = true;
+            
+            // Устанавливаем начальные значения
+            this.params.unwrapProgress = 0; // Начинаем со сферы, видимой на расстоянии
+            this.params.zoom = 0; // Начинаем с полностью невидимой сферы
+            this.params.rotation = 0; // Начинаем с нулевого вращения
+            
+            // Создаем анимацию
+            this.isAnimating = true;
+            
+            // Создаем timeline для последовательной анимации
+            const timeline = gsap.timeline({
                 onComplete: () => {
                     // Восстанавливаем состояние после анимации
                     this.isAnimating = false;
@@ -856,21 +865,22 @@ class CustomGallery {
                 }
             });
 
-        // Добавляем анимации параллельно
-        timeline.to(this.params, {
-            rotation: 2, // Два оборота (2 = 720 градусов)
-            zoom: 0.8, // Увеличиваем до среднего размера
-            duration: 2.0, // 4 секунды на вращение и увеличение
-            ease: "none", // Более плавная анимация
-        });
+            // Добавляем анимации параллельно
+            timeline.to(this.params, {
+                rotation: 2, // Два оборота (2 = 720 градусов)
+                zoom: 0.8, // Увеличиваем до среднего размера
+                duration: 2.0, // 4 секунды на вращение и увеличение
+                ease: "none", // Более плавная анимация
+            });
 
-        // Затем только увеличиваем и разворачиваем
-        timeline.to(this.params, {
-            zoom: 1, // Увеличиваем до нормального размера
-            unwrapProgress: 1, // Конечное значение - плоское изображение
-            duration: 1.3, // 3 секунды на увеличение и разворачивание
-            ease: "power2.Out", // Более плавная анимация
-        });
+            // Затем только увеличиваем и разворачиваем
+            timeline.to(this.params, {
+                zoom: 1, // Увеличиваем до нормального размера
+                unwrapProgress: 1, // Конечное значение - плоское изображение
+                duration: 1.3, // 3 секунды на увеличение и разворачивание
+                ease: "power2.Out", // Более плавная анимация
+            });
+        }, 100);
     }
     
     // Метод для скрытия элементов во время интро-анимации

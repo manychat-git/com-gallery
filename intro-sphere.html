@@ -14,7 +14,7 @@
             overflow: hidden;
         }
         
-        #gallery-preloader {
+        [data-gallery="preloader"] {
             position: fixed;
             top: 0;
             left: 0;
@@ -28,13 +28,13 @@
             transition: opacity 0.8s ease;
         }
         
-        #gallery-preloader.hidden {
+        [data-gallery="preloader"].hidden {
             opacity: 0;
             pointer-events: none;
             visibility: hidden;
         }
         
-        #gallery-preloader .logo-spinner {
+        [data-gallery="preloader"] .logo-spinner {
             width: 40px;
             height: 40px;
             display: flex;
@@ -42,7 +42,7 @@
             justify-content: center;
         }
         
-        #gallery-preloader .logo-spinner svg {
+        [data-gallery="preloader"] .logo-spinner svg {
             width: 100%;
             height: 100%;
         }
@@ -206,7 +206,7 @@
 </head>
 <body>
     <!-- Прелоадер -->
-    <div id="gallery-preloader">
+    <div data-gallery="preloader">
         <div class="logo-spinner">
             <svg width="62" height="62" viewBox="0 0 62 62" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M61 31C61 47.5685 47.5685 61 31 61C14.4315 61 1 47.5685 1 31C1 14.4315 14.4315 1 31 1C47.5685 1 61 14.4315 61 31Z" fill="#0057FF"/>
@@ -274,6 +274,13 @@
     </div>
 
     <!-- Скрипты -->
+    <script>
+        window.addEventListener('load', function() {
+            setTimeout(function() {
+                document.querySelector('[data-gallery="preloader"]').classList.add('hidden');
+            }, 100);
+        });
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.7/dist/gsap.min.js"></script>
     <script src="intro-sphere.js"></script>
 </body>

@@ -197,13 +197,6 @@ const FRAGMENT_SHADER =
 "    gl_FragColor = fragColor;\n" +
 "}";
 
-// Обработка прелоадера
-window.addEventListener('load', function() {
-    setTimeout(function() {
-        document.getElementById('gallery-preloader').classList.add('hidden');
-    }, 100);
-});
-
 class CustomGallery {
     constructor() {
         // Основной враппер

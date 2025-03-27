@@ -1025,18 +1025,11 @@ class CustomGallery {
             
             if (title) {
                 const titleSplit = new SplitText(title, {
-                    type: "words",
-                    position: "relative",
-                    wordsClass: "split-word"
+                    type: "chars,words",
+                    position: "relative"
                 });
-                // Скрываем слова сразу после разделения
-                gsap.set(titleSplit.words, { y: 20, opacity: 0 });
-                
-                // Добавляем стиль для сохранения пробелов
-                titleSplit.words.forEach(word => {
-                    word.style.display = "inline-block";
-                    word.style.marginRight = "0.25em";
-                });
+                // Скрываем символы сразу после разделения
+                gsap.set(titleSplit.chars, { y: 20, opacity: 0 });
                 
                 // Сохраняем объект SplitText для дальнейшего использования
                 this.splitTextInstances.push({
@@ -1047,18 +1040,11 @@ class CustomGallery {
             
             if (author) {
                 const authorSplit = new SplitText(author, {
-                    type: "words",
-                    position: "relative",
-                    wordsClass: "split-word"
+                    type: "chars,words",
+                    position: "relative"
                 });
-                // Скрываем слова сразу после разделения
-                gsap.set(authorSplit.words, { y: 20, opacity: 0 });
-                
-                // Добавляем стиль для сохранения пробелов
-                authorSplit.words.forEach(word => {
-                    word.style.display = "inline-block";
-                    word.style.marginRight = "0.25em";
-                });
+                // Скрываем символы сразу после разделения
+                gsap.set(authorSplit.chars, { y: 20, opacity: 0 });
                 
                 // Сохраняем объект SplitText для дальнейшего использования
                 this.splitTextInstances.push({
@@ -1067,9 +1053,6 @@ class CustomGallery {
                 });
             }
         });
-        
-        // Добавляем стили для слов
-        this.addSplitTextStyles();
     }
 
     // Метод для анимации появления текста
@@ -1084,21 +1067,21 @@ class CustomGallery {
         const authorSplitData = this.splitTextInstances.find(item => item.element === author);
         
         if (titleSplitData) {
-            gsap.to(titleSplitData.split.words, {
+            gsap.to(titleSplitData.split.chars, {
                 opacity: 1,
                 y: 0,
                 duration: 0.4,
-                stagger: 0.05,
+                stagger: 0.02,
                 ease: "power2.out"
             });
         }
         
         if (authorSplitData) {
-            gsap.to(authorSplitData.split.words, {
+            gsap.to(authorSplitData.split.chars, {
                 opacity: 1,
                 y: 0,
                 duration: 0.4,
-                stagger: 0.05,
+                stagger: 0.02,
                 delay: 0.2, // Небольшая задержка после заголовка
                 ease: "power2.out"
             });
@@ -1122,7 +1105,7 @@ class CustomGallery {
             
             if (titleSplitData && authorSplitData) {
                 // Ускоряем анимацию исчезновения автора
-                gsap.to(authorSplitData.split.words, {
+                gsap.to(authorSplitData.split.chars, {
                     opacity: 0,
                     y: -20,
                     duration: 0.2, // Ускорил с 0.3 до 0.2
@@ -1131,7 +1114,7 @@ class CustomGallery {
                 });
                 
                 // Ускоряем анимацию исчезновения заголовка и убираем задержку
-                gsap.to(titleSplitData.split.words, {
+                gsap.to(titleSplitData.split.chars, {
                     opacity: 0,
                     y: -20,
                     duration: 0.2, // Ускорил с 0.3 до 0.2
@@ -1178,21 +1161,6 @@ class CustomGallery {
     resetAutoplay() {
         this.stopAutoplay();
         this.startAutoplay();
-    }
-    
-    // Добавляем стили для разделенного текста
-    addSplitTextStyles() {
-        const style = document.createElement('style');
-        style.textContent = `
-            .split-word {
-                display: inline-block;
-                margin-right: 0.25em;
-            }
-            .split-word:last-child {
-                margin-right: 0;
-            }
-        `;
-        document.head.appendChild(style);
     }
 }
 

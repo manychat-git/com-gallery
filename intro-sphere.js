@@ -1,4 +1,3 @@
-// Определяем шейдеры, взятые из webflow-gallery.min.js
 const VERTEX_SHADER = 
 "attribute vec4 aPosition;\n" +
 "attribute vec2 aTexCoord;\n" +
@@ -542,7 +541,6 @@ class CustomGallery {
     changeSlide(direction) {
         if (this.isAnimating) return;
         
-        // При ручном переключении сбрасываем автоплей и начинаем заново
         this.resetAutoplay();
         
         if (this.isTouchOnly) {

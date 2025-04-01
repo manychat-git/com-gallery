@@ -737,90 +737,70 @@ class CustomGallery {
     }
     
     playInitialAnimation() {
-        if (this.initialAnimationPlayed || !this.useWebGL) return;
-        
-        // Проверяем позицию скролла
-        if (window.scrollY >= 10) {
-            // Если страница загружена не сверху, пропускаем интро
-            this.skipInitialAnimation();
-            return;
+        if (!this.initialAnimationPlayed && this.useWebGL) {
+            if (window.scrollY >= 10) {
+                this.skipInitialAnimation();
+            } else {
+                setTimeout(() => {
+                    this.isInitialAnimationPlaying = true;
+                    this.params.unwrapProgress = 0;
+                    this.params.zoom = 0;
+                    this.params.rotation = 0;
+                    this.isAnimating = true;
+
+                    const tl = gsap.timeline({
+                        onComplete: () => {
+                            this.isAnimating = false;
+                            this.initialAnimationPlayed = true;
+                            this.isInitialAnimationPlaying = false;
+                            this.showElementsAfterIntro();
+                            if (this.isTouchOnly) {
+                                this.params.autoRotationX = 0;
+                                this.startAutoRotation(0);
+                            }
+                            this.startAutoplay();
+                            setTimeout(() => {
+                                this.isMouseInputEnabled = true;
+                                this.mouseInterpolationFactor = 0;
+                            }, 800);
+
+                            const event = new CustomEvent('galleryInitialAnimationComplete');
+                            document.dispatchEvent(event);
+                        }
+                    });
+
+                    tl.to(this.params, {
+                        rotation: 2,
+                        zoom: 0.8,
+                        duration: 2,
+                        ease: "none"
+                    })
+                    .to(this.params, {
+                        zoom: 1,
+                        unwrapProgress: 1,
+                        duration: 1.3,
+                        ease: "power2.Out"
+                    });
+                }, 200);
+            }
         }
-        
-        setTimeout(() => {
-            this.isInitialAnimationPlaying = true;
-            
-            this.params.unwrapProgress = 0;
-            this.params.zoom = 0;
-            this.params.rotation = 0;
-            
-            this.isAnimating = true;
-            
-            const timeline = gsap.timeline({
-                onComplete: () => {
-                    this.isAnimating = false;
-                    this.initialAnimationPlayed = true;
-                    this.isInitialAnimationPlaying = false;
-                    
-                    this.showElementsAfterIntro();
-                    
-                    if (this.isTouchOnly) {
-                        this.params.autoRotationX = 0;
-                        this.startAutoRotation(0);
-                    }
-                    
-                    // Запускаем автоматическое переключение слайдов после окончания начальной анимации
-                    this.startAutoplay();
-                    
-                    // Увеличиваем задержку и добавляем плавное включение
-                    setTimeout(() => {
-                        this.isMouseInputEnabled = true;
-                        this.mouseInterpolationFactor = 0; // Начинаем с нуля
-                    }, 800); // Увеличили задержку до 800мс
-                    
-                    const event = new CustomEvent('galleryInitialAnimationComplete');
-                    document.dispatchEvent(event);
-                }
-            });
-
-            timeline.to(this.params, {
-                rotation: 2,
-                zoom: 0.8,
-                duration: 2.0,
-                ease: "none",
-            });
-
-            timeline.to(this.params, {
-                zoom: 1,
-                unwrapProgress: 1,
-                duration: 1.3,
-                ease: "power2.Out",
-            });
-        }, 200);
     }
     
     skipInitialAnimation() {
-        // Устанавливаем финальные значения параметров без анимации
         this.params.unwrapProgress = 1;
         this.params.zoom = 1;
         this.params.rotation = 0;
-        
-        // Показываем все элементы сразу
         this.showElementsAfterIntro();
-        
-        // Устанавливаем флаги
         this.initialAnimationPlayed = true;
         this.isInitialAnimationPlaying = false;
-        
-        // Запускаем автоплей для touch-устройств
+        this.isMouseInputEnabled = true;
+        this.mouseInterpolationFactor = 0;
         if (this.isTouchOnly) {
             this.params.autoRotationX = 0;
             this.startAutoRotation(0);
         }
-        
-        // Запускаем автоматическое переключение слайдов
         this.startAutoplay();
-        
-        // Отправляем событие о завершении
+
         const event = new CustomEvent('galleryInitialAnimationComplete');
         document.dispatchEvent(event);
     }

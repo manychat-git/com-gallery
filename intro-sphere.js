@@ -223,6 +223,8 @@ class CustomGallery {
         this.startTime = performance.now();
         this.mousePosition = { x: 0.5, y: 0.5 };
         this.targetMousePosition = { x: 0.5, y: 0.5 };
+        this.isMouseInputEnabled = false;
+        this.mouseInterpolationFactor = 0;
         this.params = {
             transition: 0,
             direction: 1,
@@ -412,8 +414,7 @@ class CustomGallery {
     }
     
     handleMouseMove(event) {
-        if (this.isInitialAnimationPlaying) return;
-        if (this.isTouchOnly) return;
+        if (!this.isMouseInputEnabled || this.isTouchOnly || this.isInitialAnimationPlaying) return;
         
         const x = event.clientX / window.innerWidth;
         const y = 1 - event.clientY / window.innerHeight;
@@ -579,9 +580,17 @@ class CustomGallery {
         
         this.resizeCanvasToDisplaySize();
         
-        const interpolationFactor = 0.1;
-        this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * interpolationFactor;
-        this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * interpolationFactor;
+        // Плавно увеличиваем фактор интерполяции после активации мыши
+        if (this.isMouseInputEnabled) {
+            this.mouseInterpolationFactor += (0.1 - this.mouseInterpolationFactor) * 0.05;
+        }
+        
+        // Разные факторы для X и Y для более естественного движения
+        const xFactor = this.mouseInterpolationFactor;
+        const yFactor = this.mouseInterpolationFactor * 0.7; // Y-координата движется медленнее
+        
+        this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * xFactor;
+        this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * yFactor;
         
         this.gl.clearColor(0, 0, 0, 0);
         this.gl.clear(this.gl.COLOR_BUFFER_BIT);
@@ -761,6 +770,12 @@ class CustomGallery {
                     
                     // Запускаем автоматическое переключение слайдов после окончания начальной анимации
                     this.startAutoplay();
+                    
+                    // Увеличиваем задержку и добавляем плавное включение
+                    setTimeout(() => {
+                        this.isMouseInputEnabled = true;
+                        this.mouseInterpolationFactor = 0; // Начинаем с нуля
+                    }, 800); // Увеличили задержку до 800мс
                     
                     const event = new CustomEvent('galleryInitialAnimationComplete');
                     document.dispatchEvent(event);

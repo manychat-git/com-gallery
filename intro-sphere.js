@@ -730,6 +730,13 @@ class CustomGallery {
     playInitialAnimation() {
         if (this.initialAnimationPlayed || !this.useWebGL) return;
         
+        // Проверяем позицию скролла
+        if (window.scrollY >= 10) {
+            // Если страница загружена не сверху, пропускаем интро
+            this.skipInitialAnimation();
+            return;
+        }
+        
         setTimeout(() => {
             this.isInitialAnimationPlaying = true;
             
@@ -774,6 +781,33 @@ class CustomGallery {
                 ease: "power2.Out",
             });
         }, 200);
+    }
+    
+    skipInitialAnimation() {
+        // Устанавливаем финальные значения параметров без анимации
+        this.params.unwrapProgress = 1;
+        this.params.zoom = 1;
+        this.params.rotation = 0;
+        
+        // Показываем все элементы сразу
+        this.showElementsAfterIntro();
+        
+        // Устанавливаем флаги
+        this.initialAnimationPlayed = true;
+        this.isInitialAnimationPlaying = false;
+        
+        // Запускаем автоплей для touch-устройств
+        if (this.isTouchOnly) {
+            this.params.autoRotationX = 0;
+            this.startAutoRotation(0);
+        }
+        
+        // Запускаем автоматическое переключение слайдов
+        this.startAutoplay();
+        
+        // Отправляем событие о завершении
+        const event = new CustomEvent('galleryInitialAnimationComplete');
+        document.dispatchEvent(event);
     }
     
     hideElementsDuringIntro() {

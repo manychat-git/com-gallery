@@ -186,7 +186,7 @@ class CustomGallery {
         this.autoRotationStartedAfterIntro = false;
         this.splitTextInstances = [];
         this.autoplayInterval = null;
-        this.autoplayDelay = 5000; // 5 секунд
+        this.autoplayDelay = 3000; 
         this.addTransitionStyles();
         this.hideElementsDuringIntro();
         this.initSplitText();
@@ -213,7 +213,6 @@ class CustomGallery {
         });
         
         if (!this.gl) {
-            console.error('WebGL не поддерживается в этом браузере');
             this.useWebGL = false;
         } else {
             this.useWebGL = true;
@@ -266,19 +265,15 @@ class CustomGallery {
                 
                 this.params.direction = index > this.currentSlide ? -1 : 1;
                 
-                // Get the current slide's text container
                 const currentSlide = this.slides[this.currentSlide];
                 const textContainer = currentSlide.querySelector('[data-gallery="text-container"]');
                 
-                // Animate the text container fading out
                 if (textContainer && !this.isInitialAnimationPlaying) {
                     this.animateTextOut(textContainer).then(() => {
-                        // Change slide after text fades out
                         this.currentSlide = index;
                         this.showSlide(this.currentSlide);
                     });
                 } else {
-                    // If there's no text container, just change slide directly
                     this.currentSlide = index;
                     this.showSlide(this.currentSlide);
                 }
@@ -349,7 +344,6 @@ class CustomGallery {
         this.gl.compileShader(shader);
         
         if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
-            console.error('Ошибка компиляции шейдера:', this.gl.getShaderInfoLog(shader));
             this.gl.deleteShader(shader);
             return null;
         }
@@ -364,7 +358,6 @@ class CustomGallery {
         this.gl.linkProgram(program);
         
         if (!this.gl.getProgramParameter(program, this.gl.LINK_STATUS)) {
-            console.error('Ошибка линковки программы:', this.gl.getProgramInfoLog(program));
             return null;
         }
         
@@ -548,21 +541,17 @@ class CustomGallery {
             this.stopAutoRotation();
         }
         
-        // Get the current slide's text container
         const currentSlide = this.slides[this.currentSlide];
         const textContainer = currentSlide.querySelector('[data-gallery="text-container"]');
         
-        // Calculate the new slide index
         const newIndex = (this.currentSlide + direction + this.slideCount) % this.slideCount;
         
-        // Animate the text container fading out
         if (textContainer && !this.isInitialAnimationPlaying) {
             this.animateTextOut(textContainer).then(() => {
                 this.currentSlide = newIndex;
                 this.showSlide(this.currentSlide);
             });
         } else {
-            // If there's no text container, just proceed normally
             this.currentSlide = newIndex;
             this.showSlide(this.currentSlide);
         }
@@ -580,14 +569,12 @@ class CustomGallery {
         
         this.resizeCanvasToDisplaySize();
         
-        // Плавно увеличиваем фактор интерполяции после активации мыши
         if (this.isMouseInputEnabled) {
             this.mouseInterpolationFactor += (0.1 - this.mouseInterpolationFactor) * 0.05;
         }
         
-        // Разные факторы для X и Y для более естественного движения
         const xFactor = this.mouseInterpolationFactor;
-        const yFactor = this.mouseInterpolationFactor * 0.7; // Y-координата движется медленнее
+        const yFactor = this.mouseInterpolationFactor * 0.7;
         
         this.mousePosition.x += (this.targetMousePosition.x - this.mousePosition.x) * xFactor;
         this.mousePosition.y += (this.targetMousePosition.y - this.mousePosition.y) * yFactor;
@@ -660,7 +647,6 @@ class CustomGallery {
             const diff = moveX - startX;
             
             if (Math.abs(diff) > threshold) {
-                // При свайпе сбрасываем автоплей и начинаем заново
                 this.resetAutoplay();
                 
                 if (this.isTouchOnly) {
@@ -687,12 +673,10 @@ class CustomGallery {
         this.container.addEventListener('mousedown', handleTouchStart);
         this.container.addEventListener('touchstart', handleTouchStart);
         
-        // Остановка автоплея при наведении на контейнер
         this.container.addEventListener('mouseenter', () => {
             this.stopAutoplay();
         });
         
-        // Запуск автоплея при уходе мыши с контейнера
         this.container.addEventListener('mouseleave', () => {
             if (this.initialAnimationPlayed) {
                 this.startAutoplay();
@@ -710,7 +694,6 @@ class CustomGallery {
                         this.stopAutoRotation();
                     }
                     
-                    // Сбрасываем и перезапускаем автоплей
                     this.resetAutoplay();
                     
                     this.params.direction = 1;
@@ -721,7 +704,6 @@ class CustomGallery {
                         this.stopAutoRotation();
                     }
                     
-                    // Сбрасываем и перезапускаем автоплей
                     this.resetAutoplay();
                     
                     this.params.direction = -1;
@@ -855,7 +837,6 @@ class CustomGallery {
                     if (this.isAnimating || this.isInitialAnimationPlaying) return;
                     if (this.currentSlide === i) return;
                     
-                    // Сбрасываем автоплей при клике на пагинацию
                     this.resetAutoplay();
                     
                     if (this.isTouchOnly) {
@@ -864,19 +845,15 @@ class CustomGallery {
                     
                     this.params.direction = i > this.currentSlide ? -1 : 1;
                     
-                    // Get the current slide's text container
                     const currentSlide = this.slides[this.currentSlide];
                     const textContainer = currentSlide.querySelector('[data-gallery="text-container"]');
                     
-                    // Animate the text container fading out
                     if (textContainer && !this.isInitialAnimationPlaying) {
                         this.animateTextOut(textContainer).then(() => {
-                            // Change slide after text fades out
                             this.currentSlide = i;
                             this.showSlide(this.currentSlide);
                         });
                     } else {
-                        // If there's no text container, just change slide directly
                         this.currentSlide = i;
                         this.showSlide(this.currentSlide);
                     }
@@ -906,7 +883,6 @@ class CustomGallery {
                     if (this.isAnimating || this.isInitialAnimationPlaying) return;
                     if (this.currentSlide === i) return;
                     
-                    // Сбрасываем автоплей при клике на пагинацию
                     this.resetAutoplay();
                     
                     if (this.isTouchOnly) {
@@ -915,19 +891,15 @@ class CustomGallery {
                     
                     this.params.direction = i > this.currentSlide ? -1 : 1;
                     
-                    // Get the current slide's text container
                     const currentSlide = this.slides[this.currentSlide];
                     const textContainer = currentSlide.querySelector('[data-gallery="text-container"]');
                     
-                    // Animate the text container fading out
                     if (textContainer && !this.isInitialAnimationPlaying) {
                         this.animateTextOut(textContainer).then(() => {
-                            // Change slide after text fades out
                             this.currentSlide = i;
                             this.showSlide(this.currentSlide);
                         });
                     } else {
-                        // If there's no text container, just change slide directly
                         this.currentSlide = i;
                         this.showSlide(this.currentSlide);
                     }
@@ -955,7 +927,6 @@ class CustomGallery {
                     if (this.isAnimating || this.isInitialAnimationPlaying) return;
                     if (this.currentSlide === i) return;
                     
-                    // Сбрасываем автоплей при клике на пагинацию
                     this.resetAutoplay();
                     
                     if (this.isTouchOnly) {
@@ -964,19 +935,15 @@ class CustomGallery {
                     
                     this.params.direction = i > this.currentSlide ? -1 : 1;
                     
-                    // Get the current slide's text container
                     const currentSlide = this.slides[this.currentSlide];
                     const textContainer = currentSlide.querySelector('[data-gallery="text-container"]');
                     
-                    // Animate the text container fading out
                     if (textContainer && !this.isInitialAnimationPlaying) {
                         this.animateTextOut(textContainer).then(() => {
-                            // Change slide after text fades out
                             this.currentSlide = i;
                             this.showSlide(this.currentSlide);
                         });
                     } else {
-                        // If there's no text container, just change slide directly
                         this.currentSlide = i;
                         this.showSlide(this.currentSlide);
                     }
@@ -1020,7 +987,6 @@ class CustomGallery {
     detectTouchOnlyDevice() {
         this.isTouchOnly = ('ontouchstart' in window || navigator.maxTouchPoints > 0) && 
                           !window.matchMedia('(pointer: fine)').matches;
-        console.log('Touch-only device detected:', this.isTouchOnly);
     }
     
     startAutoRotation(startRotation = 0) {
@@ -1045,7 +1011,6 @@ class CustomGallery {
     }
     
     initSplitText() {
-        // Инициализируем SplitText для всех текстовых элементов
         this.textContainers.forEach(container => {
             const title = container.querySelector('[data-gallery-text="title"]');
             const author = container.querySelector('[data-gallery-text="author"]');
@@ -1055,10 +1020,8 @@ class CustomGallery {
                     type: "chars,words",
                     position: "relative"
                 });
-                // Скрываем символы сразу после разделения
                 gsap.set(titleSplit.chars, { y: 20, opacity: 0 });
                 
-                // Сохраняем объект SplitText для дальнейшего использования
                 this.splitTextInstances.push({
                     element: title,
                     split: titleSplit
@@ -1070,10 +1033,8 @@ class CustomGallery {
                     type: "chars,words",
                     position: "relative"
                 });
-                // Скрываем символы сразу после разделения
                 gsap.set(authorSplit.chars, { y: 20, opacity: 0 });
                 
-                // Сохраняем объект SplitText для дальнейшего использования
                 this.splitTextInstances.push({
                     element: author,
                     split: authorSplit
@@ -1082,14 +1043,12 @@ class CustomGallery {
         });
     }
 
-    // Метод для анимации появления текста
     animateTextIn(container) {
         if (!container) return;
         
         const title = container.querySelector('[data-gallery-text="title"]');
         const author = container.querySelector('[data-gallery-text="author"]');
         
-        // Находим соответствующие объекты SplitText
         const titleSplitData = this.splitTextInstances.find(item => item.element === title);
         const authorSplitData = this.splitTextInstances.find(item => item.element === author);
         
@@ -1109,13 +1068,12 @@ class CustomGallery {
                 y: 0,
                 duration: 0.4,
                 stagger: 0.02,
-                delay: 0.2, // Небольшая задержка после заголовка
+                delay: 0.2,
                 ease: "power2.out"
             });
         }
     }
 
-    // Метод для анимации исчезновения текста
     animateTextOut(container) {
         return new Promise((resolve) => {
             if (!container) {
@@ -1126,35 +1084,31 @@ class CustomGallery {
             const title = container.querySelector('[data-gallery-text="title"]');
             const author = container.querySelector('[data-gallery-text="author"]');
             
-            // Находим соответствующие объекты SplitText
             const titleSplitData = this.splitTextInstances.find(item => item.element === title);
             const authorSplitData = this.splitTextInstances.find(item => item.element === author);
             
             if (titleSplitData && authorSplitData) {
-                // Ускоряем анимацию исчезновения автора
                 gsap.to(authorSplitData.split.chars, {
                     opacity: 0,
                     y: -20,
-                    duration: 0.2, // Ускорил с 0.3 до 0.2
+                    duration: 0.2,
                     stagger: 0.01,
                     ease: "power2.in"
                 });
                 
-                // Ускоряем анимацию исчезновения заголовка и убираем задержку
                 gsap.to(titleSplitData.split.chars, {
                     opacity: 0,
                     y: -20,
-                    duration: 0.2, // Ускорил с 0.3 до 0.2
+                    duration: 0.2,
                     stagger: 0.01,
-                    delay: 0.05, // Уменьшил задержку с 0.1 до 0.05
+                    delay: 0.05,
                     ease: "power2.in",
                     onComplete: resolve
                 });
             } else {
-                // Ускоряем резервную анимацию
                 gsap.to(container, {
                     opacity: 0,
-                    duration: 0.2, // Ускорил с 0.3 до 0.2
+                    duration: 0.2,
                     ease: "power1.out",
                     onComplete: resolve
                 });
@@ -1162,21 +1116,17 @@ class CustomGallery {
         });
     }
     
-    // Метод для запуска автоматического переключения слайдов
     startAutoplay() {
-        // Очищаем предыдущий интервал, если есть
         this.stopAutoplay();
         
-        // Создаем новый интервал
         this.autoplayInterval = setInterval(() => {
             if (!this.isAnimating && !this.isInitialAnimationPlaying) {
-                this.params.direction = -1; // Всегда вперед при автопереключении
+                this.params.direction = -1;
                 this.changeSlide(1);
             }
         }, this.autoplayDelay);
     }
     
-    // Метод для остановки автоматического переключения слайдов
     stopAutoplay() {
         if (this.autoplayInterval) {
             clearInterval(this.autoplayInterval);
@@ -1184,7 +1134,6 @@ class CustomGallery {
         }
     }
     
-    // Метод для сброса и перезапуска автоплея
     resetAutoplay() {
         this.stopAutoplay();
         this.startAutoplay();
